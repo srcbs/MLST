@@ -283,7 +283,7 @@ def start_assembly(args, logger):
    
    # if trimming is needed
    if args.trim:
-      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.queue, cpu=cpuA)
+      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.queue, cpu=cpuF)
       # if no interleaving is needed
       if len(interleave_calls) == 0:
          velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.queue, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var)
@@ -324,7 +324,7 @@ def start_assembly(args, logger):
       velvetaccept_moab.release()
    velvetclean_moab.release()
    
-   # semaphore (consensus is currently not waited for)
+   # semaphore
    print "Waiting for jobs to finish ..."
    s = Semaphore(velvetclean_moab.ids, home, 'velvet', args.queue, 20, 2*86400)
    s.wait()
@@ -367,7 +367,7 @@ if __name__ == '__main__':
    #args = parser.parse_args('--short fastq test_1.fq test_2.fq --ksizes 33 49 4 --outpath test'.split())
    #args = parser.parse_args('--short fastq.gz Kleb-10-213361_2.interleaved.fastq.test.gz --ksizes 41 55 4 --sample Kleb'.split())
    #args = parser.parse_args('--shortPaired fastq /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_1_sequence.txt /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_2_sequence.txt --ksizes 21 45 4 --sample TG8130'.split())
-   
+   #args = parser.parse_args('--shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 33 75 4 --sample kleb_wtrim --trim'.split())
 
    # add_velveth and add_velvetg works from commandline, eg:
    # mlst_denovo_velvet.py --short fastq.gz interleaved.fastq.gz --ksizes 33 --sample Kleb --add_velvetg "-very_clean yes"
