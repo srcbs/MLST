@@ -28,6 +28,7 @@ def setSystem():
       sys['newbler'] = '/panvol1/simon/bin/454/bin/'
       sys['R_home'] = '/tools/bin/'
       sys['mlst_home'] = '/panvol1/simon/bin/mlst/'
+      sys['solid_home'] = '/panvol1/simon/bin/solid/'
    else:
       raise ValueError('Platform not identified')
    

@@ -54,8 +54,11 @@ def newbler_stats(args):
    assembly_path = '%s/assembly/' % args.outpath
    cmds.append('''perl -ne 'if ($_ =~ m/^>.+length=(\d+)/) { print $1, "\\n"}' %s > 454AllContigs.lengths ''' % (assembly_path + '454AllContigs.fna'))
    cmds.append('''perl -ne 'if ($_ =~ m/^>.+length=(\d+)/) { print $1, "\\n"}' %s > 454LargeContigs.lengths ''' % (assembly_path + '454LargeContigs.fna'))
-   cmds.append('''perl -ne 'if ($_ =~ m/^>.+length=(\d+)/) { print $1, "\\n"}' %s > 454Scaffolds.lengths ''' % (assembly_path + '454Scaffolds.fna'))
-   cmds.append('%sR-2.12 --vanilla 454AllContigs.lengths 454LargeContigs.lengths 454Scaffolds.lengths assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
+   if args.pe:
+      cmds.append('''perl -ne 'if ($_ =~ m/^>.+length=(\d+)/) { print $1, "\\n"}' %s > 454Scaffolds.lengths ''' % (assembly_path + '454Scaffolds.fna'))
+      cmds.append('%sR-2.12 --vanilla 454AllContigs.lengths 454LargeContigs.lengths 454Scaffolds.lengths assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
+   else:
+      cmds.append('%sR-2.12 --vanilla 454AllContigs.lengths 454LargeContigs.lengths NA assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
    
    # write in bash script
    fh = open('newbler_stats.sh', 'w')
@@ -114,7 +117,7 @@ if __name__ == '__main__':
    import logging
    
    # create the parser
-   parser = argparse.ArgumentParser(prog='mlst_denovo_velvet.py', formatter_class=lambda prog: argparse.RawDescriptionHelpFormatter(prog,max_help_position=50, width=110), usage='%(prog)s [options]', description='''
+   parser = argparse.ArgumentParser(prog='mlst_denovo_newbler.py', formatter_class=lambda prog: argparse.RawDescriptionHelpFormatter(prog,max_help_position=50, width=110), usage='%(prog)s [options]', description='''
    Run Newbler (2.6) denovo assembly
    Format can be: fasta, fastq, sff
    If both fasta and qual files should be used for assembly only add the fasta file 

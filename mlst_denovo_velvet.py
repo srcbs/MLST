@@ -13,6 +13,47 @@ def required_nargs(min,max):
          setattr(args, self.dest, value)
    return RequiredInterval
 
+# set_filetypes, are only required (and called) by mlst_wrapper_denovo2.0.py
+def set_filetypes(args):
+   '''Detects filetype from fasta / fastq and update args'''
+   
+   def check_filetypes(files):
+      '''Do the actual detection, requires all to be the same
+         Returns input list with filetype appended in front'''
+   
+      def get_filetype(f):
+         '''Return filetype (fasta/fastq)'''
+         inhandle = open(f, "r")
+         line = inhandle.readline()
+         if line.startswith(">"):
+            out = 'fasta'
+         elif line.startswith("@"):
+            out = 'fastq'
+         else:
+            raise ValueError('Input must be fasta or fastq')
+         return out
+      
+      def all_same(items):
+         return all(x == items[0] for x in items)
+      
+      if files:
+         filetypes = []
+         for i in range(len(files)):
+            filetypes.append(get_filetype(files[i]))
+         if all_same(filetypes):
+            
+            return files.insert(0, filetypes[0])
+         else:
+            raise ValueError('Not all files are of same filetype: %s' % (' '.join(filetypes)))
+   
+   if args.short: check_filetypes(args.short)
+   if args.short2: check_filetypes(args.short2)
+   if args.shortPaired: check_filetypes(args.shortPaired)
+   if args.shortPaired2: check_filetypes(args.shortPaired2)
+   if args.long: check_filetypes(args.long)
+   if args.longPaired: check_filetypes(args.longPaired)
+
+
 def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep_n):
    '''Create single end trim calls'''
    
@@ -48,7 +89,7 @@ def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep
             calls.append(cmd+arg)
          args.short2[1:] = outfiles_short2
    
-   if args.shortPaired and args.shortPaired[0] == 'fastq':
+   if args.shortPaired and args.shortPaired[0] == 'fastq' and len(args.shortPaired) > 2:
       outfiles_shortPaired = []
       outfile_pe1 = 'trimmed/' + os.path.split(args.shortPaired[1])[1] + '.trim.fq'
       outfile_pe2 = 'trimmed/' + os.path.split(args.shortPaired[2])[1] + '.trim.fq'
@@ -59,7 +100,7 @@ def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep
       calls.append(cmd+arg)
       args.shortPaired[1:] = outfiles_shortPaired
    
-   if args.shortPaired2 and args.shortPaired2[0] == 'fastq':
+   if args.shortPaired2 and args.shortPaired2[0] == 'fastq' and len(args.shortPaired2) > 2:
       outfiles_shortPaired2 = []
       outfile_pe1 = 'trimmed/' + os.path.split(args.shortPaired2[1])[1] + '.trim.fq'
       outfile_pe2 = 'trimmed/' + os.path.split(args.shortPaired2[2])[1] + '.trim.fq'
@@ -339,7 +380,9 @@ if __name__ == '__main__':
    parser = argparse.ArgumentParser(prog='mlst_denovo_velvet.py', formatter_class=lambda prog: argparse.RawDescriptionHelpFormatter(prog,max_help_position=50, width=110), usage='%(prog)s [options]', description='''
    Run Velvet denovo assembly. Read input is given by eg. --short <format> <reads>
    Format can be: fasta, fastq, raw, fasta.gz, fastq.gz, raw.gz, sam, bam
-   add_velvetg/add_velveth has to be added with quotes, eg: add_velvetg "-very_clean yes"\n''')
+   add_velvetg/add_velveth has to be added with quotes, eg: add_velvetg "-very_clean yes"
+   if mate_pairs are used (in eg. shortPaired2) one should add: add_velvetg "-shortMatePaired2 yes -ins_length2 <MP size>"
+   NB: Trimming does not work on already interleaved files\n''')
    
    # add the arguments
    parser.add_argument('--short', help='input read format and short reads', nargs='+', action=required_nargs(0,3))
@@ -360,7 +403,7 @@ if __name__ == '__main__':
    parser.add_argument('--add_velvetg', help='additional parameters to velvetg', default=None)
    parser.add_argument('--n', help='number of threads for parallel run [4]', default=4, type=int)
    parser.add_argument('--m', help='memory needed for assembly [2gb]', default='2gb')
-   parser.add_argument('--queue', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cbs]', default='cbs')
+   parser.add_argument('--queue', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
    parser.add_argument('--log', help='log level [info]', default='info')
 
    args = parser.parse_args()
@@ -380,6 +423,9 @@ if __name__ == '__main__':
       os.chdir(args.sample)
    else:
       pass
+   
+   if not os.path.exists('log'):
+      os.makedirs('log')
    
    # start logging
    logger = logging.getLogger('mlst_denovo_velvet.py')

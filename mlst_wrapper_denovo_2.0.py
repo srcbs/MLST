@@ -74,13 +74,15 @@ parent_parser.add_argument('--log', help='log level [INFO]', default='info')
 # create subparsers
 subparsers = parser.add_subparsers(dest='assembler')
 
-parser_velvet = subparsers.add_parser('velvet', help='Run velvet denovo assembly', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=50, width=110), usage='mlst_wrapper_denovo_2.0.py velvet [options]')
-parser_velvet.add_argument('--short', help='input read format and short reads', nargs='+', action=required_nargs_abspath(0,3))
-parser_velvet.add_argument('--shortPaired', help='input read format and short paired reads', nargs='+', action=required_nargs_abspath(0,3))
-parser_velvet.add_argument('--short2', help='input read format and short2 reads', nargs='+', action=required_nargs_abspath(0,3))
-parser_velvet.add_argument('--shortPaired2', help='input read format and short paired2 reads', nargs='+', action=required_nargs_abspath(0,3))
-parser_velvet.add_argument('--long', help='input read format and long reads', nargs='+', action=required_nargs_abspath(0,3))
-parser_velvet.add_argument('--longPaired', help='input read format and long paired reads', nargs='+', action=required_nargs_abspath(0,3))
+# velvet
+parser_velvet = subparsers.add_parser('velvet', help='Run velvet denovo assembly', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=50, width=110), usage='mlst_wrapper_denovo_2.0.py velvet [options]', description=
+   '''Run Velvet denovo assembly, add_velvetg/add_velveth has to be added with quotes, eg: add_velvetg "-very_clean yes". NB: Trimming does not work on already interleaved files, This version of the wrapper only takes fasta and fastq as input\n''')
+parser_velvet.add_argument('--short', help='short reads', nargs='+', action=set_abspath())
+parser_velvet.add_argument('--shortPaired', help='short paired reads', nargs='+', action=set_abspath())
+parser_velvet.add_argument('--short2', help='short2 reads', nargs='+', action=set_abspath())
+parser_velvet.add_argument('--shortPaired2', help='short paired2 reads', nargs='+', action=set_abspath())
+parser_velvet.add_argument('--long', help='long reads', nargs='+', action=set_abspath())
+parser_velvet.add_argument('--longPaired', help='long paired reads', nargs='+', action=set_abspath())
 parser_velvet.add_argument('--ksizes', help='kmers to run assemblies for (single (m) or m M s (min, max, step)) [33]', nargs='+', default=[33])
 parser_velvet.add_argument('--outpath', help='name of run, also output dir [assembly]', default='assembly')
 parser_velvet.add_argument('--trim', help='should input files be trimmed (illumina only) [False]', default=False, action='store_true')
@@ -91,19 +93,30 @@ parser_velvet.add_argument('--ins_length', help='insert size (reads included) [N
 parser_velvet.add_argument('--add_velveth', help='additional parameters to velveth', default=None)
 parser_velvet.add_argument('--add_velvetg', help='additional parameters to velvetg', default=None)
 
-parser_newbler = subparsers.add_parser('newbler', help='Run newbler denovo assembly', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=35, width=100), usage='mlst_wrapper_denovo_2.0.py newbler [options]')
-parser_newbler.add_argument('--i', help='single end input files (454:sff/fa+qual/fastq/fa)', nargs='+', default=None, action=set_abspath())
-parser_newbler.add_argument('--pe', help='if using paired reads, paired reads file [None]', nargs='+', default=None, action=set_abspath())
+# newbler
+parser_newbler = subparsers.add_parser('newbler', help='Run newbler denovo assembly', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=35, width=110), usage='mlst_wrapper_denovo_2.0.py newbler [options]', description=
+   '''Run Newbler (2.6) denovo assembly. Format can be: fasta, fastq, sff. If both fasta and qual files should be used for assembly only add the fasta file and make sure the qual file is in the same path with same name except .qual ending''')
+parser_newbler.add_argument('--se', help='input sff/fasta/fastq files', nargs='+', action=set_abspath())
+parser_newbler.add_argument('--pe', help='input paired end sff/fasta/fastq files', nargs='+', default=None, action=set_abspath())
+parser_newbler.add_argument('--outpath', help='assembly output dir [denovo]', default='denovo')
+
+# solid
+parser_solid = subparsers.add_parser('solid', help='Run solid denovo assembly (uses velvet)', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=35, width=110), usage='mlst_wrapper_denovo_2.0.py solid [options]', description=
+   ''' ''')
+parser_solid.add_argument('--se', help='input single end csfasta file (F3, F3q)', nargs='+', action=set_abspath())
+parser_solid.add_argument('--pe', help='input paired end csfasta files (F3, R5, F3q, R5q) ', nargs='+', default=None, action=set_abspath())
+parser_solid.add_argument('--mp', help='input mate pair csfasta files (F3, F3q, R3, R3q)', nargs='+', default=None, action=set_abspath())
+parser_solid.add_argument('--rf', help='input expected length of genome in bp', type=int, required=True)
+parser_solid.add_argument('--ins_length', help='estimate of mate/paired end insert length eg. (1200/170)', type=int)
+parser_solid.add_argument('--ins_length_sd', help='estimate of mate/paired end insert length eg. (300/30)', type=int)
+parser_solid.add_argument('--add_solid', help='additional parameters to solid assembler', default=None)
 
 args = parser.parse_args()
 #args = parser.parse_args('velvet --shortPaired fastq Kleb-10-213361_2_1_sequence.trim.fq Kleb-10-213361_2_2_sequence.trim.fq --ksizes 41 55 4'.split())
+#args = parser.parse_args('velvet --short 110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --ksizes 45 75 --sample E_coli_TY2482_illumina --trim'.split())
 
 # set pythonpath
-#os.environ['PYTHONPATH'] = '/lib/python:/home/people/simon/lib/misc:/panvol1/simon/bin/pipeline:/panvol1/simon/lib/python/:/panvol1/simon/bin/genobox'
 os.environ['PYTHONPATH'] = '/panvol1/simon/lib/python/:/panvol1/simon/bin/mlst/'
-
-#print "New pythonpath is set to: %s" % os.environ['PYTHONPATH']
-
 
 # If working dir is given, create and move to working directory else run where program is invoked
 if args.sample:
@@ -129,8 +142,13 @@ if args.log == 'info':
 
 if args.assembler == 'velvet':
    from mlst_denovo_velvet import *
+   set_filetypes(args)
    start_assembly(args, logger)
 elif args.assembler == 'newbler':
-   pass
+   from mlst_denovo_newbler import *
+   start_assembly(args, logger)
+elif args.assembler == 'solid':
+   from mlst_denovo_solid import *
+   start_assembly(args, logger)
 
    
