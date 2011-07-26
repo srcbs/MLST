@@ -1,8 +1,5 @@
 #!/panvol1/simon/bin/python2.7
 
-## Example, illumina paired end reads, with trimming (using ksizes 49 because it is one of the best ones)
-# /panvol1/simon/bin/mlst/mlst_wrapper_denovo_2.0.py velvet --shortPaired fastq Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --sample Kleb_w_trim --ksizes 49 --add_velvetg "-very_clean yes" --trim
-
 import argparse
 import logging
 import os
@@ -67,7 +64,7 @@ parser = argparse.ArgumentParser(prog='mlst_wrapper_denovo_2.0.py',
 parent_parser = argparse.ArgumentParser(add_help=False)
 parent_parser.add_argument('--sample', help='name of run and output directory [mlst_run]', default='mlst_run')
 parent_parser.add_argument('--n', help='number of threads for parallel run [4]', default=4, type=int)
-parent_parser.add_argument('--m', help='memory needed for assembly [2gb]', default='2gb')
+parent_parser.add_argument('--m', help='memory needed for assembly [7gb]', default='7gb')
 parent_parser.add_argument('--queue', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
 parent_parser.add_argument('--log', help='log level [INFO]', default='info')
 
@@ -76,14 +73,14 @@ subparsers = parser.add_subparsers(dest='assembler')
 
 # velvet
 parser_velvet = subparsers.add_parser('velvet', help='Run velvet denovo assembly', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=50, width=110), usage='mlst_wrapper_denovo_2.0.py velvet [options]', description=
-   '''Run Velvet denovo assembly, add_velvetg/add_velveth has to be added with quotes, eg: add_velvetg "-very_clean yes". NB: Trimming does not work on already interleaved files, This version of the wrapper only takes fasta and fastq as input\n''')
+   '''Run Velvet denovo assembly, add_velvetg/add_velveth has to be added with quotes, eg: add_velvetg "-very_clean yes". NB: Trimming does not work on already interleaved files, This version of the wrapper only takes fasta and fastq as input\nDefault ksizes (auto) will run a range awer45 (read_length/3..read_length/3*2) with step 4 between \n''')
 parser_velvet.add_argument('--short', help='short reads', nargs='+', action=set_abspath())
 parser_velvet.add_argument('--shortPaired', help='short paired reads', nargs='+', action=set_abspath())
 parser_velvet.add_argument('--short2', help='short2 reads', nargs='+', action=set_abspath())
 parser_velvet.add_argument('--shortPaired2', help='short paired2 reads', nargs='+', action=set_abspath())
 parser_velvet.add_argument('--long', help='long reads', nargs='+', action=set_abspath())
 parser_velvet.add_argument('--longPaired', help='long paired reads', nargs='+', action=set_abspath())
-parser_velvet.add_argument('--ksizes', help='kmers to run assemblies for (single (m) or m M s (min, max, step)) [33]', nargs='+', default=[33])
+parser_velvet.add_argument('--ksizes', help='kmers to run assemblies for (single (m) or m M s (min, max, step)) [auto]', nargs='+', default=['auto'])
 parser_velvet.add_argument('--outpath', help='name of run, also output dir [assembly]', default='assembly')
 parser_velvet.add_argument('--trim', help='should input files be trimmed (illumina only) [False]', default=False, action='store_true')
 parser_velvet.add_argument('--min_contig_lgth', help='mininum length to report contig [100]', default=100, type=int)
@@ -104,7 +101,7 @@ parser_newbler.add_argument('--outpath', help='assembly output dir [denovo]', de
 parser_solid = subparsers.add_parser('solid', help='Run solid denovo assembly (uses velvet)', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=35, width=110), usage='mlst_wrapper_denovo_2.0.py solid [options]', description=
    ''' ''')
 parser_solid.add_argument('--se', help='input single end csfasta file (F3, F3q)', nargs='+', action=set_abspath())
-parser_solid.add_argument('--pe', help='input paired end csfasta files (F3, R5, F3q, R5q) ', nargs='+', default=None, action=set_abspath())
+parser_solid.add_argument('--pe', help='input paired end csfasta files (F3, F3q, F5, F5q) ', nargs='+', default=None, action=set_abspath())
 parser_solid.add_argument('--mp', help='input mate pair csfasta files (F3, F3q, R3, R3q)', nargs='+', default=None, action=set_abspath())
 parser_solid.add_argument('--rf', help='input expected length of genome in bp', type=int, required=True)
 parser_solid.add_argument('--ins_length', help='estimate of mate/paired end insert length eg. (1200/170)', type=int)
@@ -112,7 +109,9 @@ parser_solid.add_argument('--ins_length_sd', help='estimate of mate/paired end i
 parser_solid.add_argument('--add_solid', help='additional parameters to solid assembler', default=None)
 
 args = parser.parse_args()
-#args = parser.parse_args('velvet --shortPaired fastq Kleb-10-213361_2_1_sequence.trim.fq Kleb-10-213361_2_2_sequence.trim.fq --ksizes 41 55 4'.split())
+#args = parser.parse_args('velvet --shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 41 55 4 --trim'.split())
+#args = parser.parse_args('velvet --shortPaired Kleb-10-213361_2.interleaved.fastq --trim --sample Kleb_auto'.split())
+
 #args = parser.parse_args('velvet --short 110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --ksizes 45 75 --sample E_coli_TY2482_illumina --trim'.split())
 
 # set pythonpath
