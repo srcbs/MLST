@@ -273,10 +273,10 @@ class Semaphore:
       import string
       import random
       import os
-      import genobox_modules
+      import mlst_modules
       import subprocess
       
-      paths = genobox_modules.setSystem()
+      paths = mlst_modules.setSystem()
       
       # add directory and set semaphore filename
       if not os.path.exists('semaphores/'):
