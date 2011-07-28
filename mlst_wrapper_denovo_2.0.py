@@ -5,7 +5,7 @@ import logging
 import os
 
 def required_nargs_abspath(min,max):
-   '''Enforces input to nargs to be between min and max long'''
+   '''Enforces input to nargs to be between min and max long and sets abspath for input 1:'''
    class RequiredInterval(argparse.Action):
       def __call__(self, parser, args, value, option_string=None):
          if not min<=len(value)<=max:
@@ -121,7 +121,7 @@ os.environ['PYTHONPATH'] = '/panvol1/simon/lib/python/:/panvol1/simon/bin/mlst/'
 if args.sample:
    if not os.path.exists(args.sample):
       os.makedirs(args.sample)
-   os.chmod(args.sample, 0777)
+   #os.chmod(args.sample, 0777)
    os.chdir(args.sample)
 else:
    pass
