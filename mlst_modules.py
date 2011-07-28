@@ -24,7 +24,7 @@ def setSystem():
       sys['samtools_home'] = '/panvol1/simon/bin/samtools-0.1.16/'
       sys['picard_home'] = '/panvol1/simon/bin/picard-tools-1.26/'
       sys['bedtools_home'] = '/panvol1/simon/bin/BEDTools-2.8.3/'
-      sys['velvet_home'] = '/panvol1/simon/bin/velvet_1.1.02/'
+      sys['velvet_home'] = '/panvol1/simon/bin/velvet_1.1.04/'
       sys['newbler'] = '/panvol1/simon/bin/454/bin/'
       sys['R_home'] = '/tools/bin/'
       sys['mlst_home'] = '/panvol1/simon/bin/mlst/'

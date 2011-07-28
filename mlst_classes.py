@@ -288,7 +288,7 @@ class Semaphore:
       
       # submit job 
       depends = ':'.join(self.semaphore_ids)
-      xmsub = '%sxmsub -d %s -l ncpus=1,mem=10mb,walltime=180,depend=%s -O %s -q %s -N semaphores -E %s -r y -t echo done' % (paths['pyscripts_home'], self.home, depends, semaphore_file, self.queue, semaphore_file_err)
+      xmsub = '%sxmsub -d %s -l ncpus=1,mem=10mb,walltime=180,depend=%s -O %s -q %s -N semaphores -E %s -r y -t echo done' % (paths['mlst_home'], self.home, depends, semaphore_file, self.queue, semaphore_file_err)
       dummy_id = subprocess.check_output(xmsub, shell=True)
       
       # check for file to appear
