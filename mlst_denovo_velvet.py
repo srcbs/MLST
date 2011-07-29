@@ -399,7 +399,10 @@ def start_assembly(args, logger):
       args.ksizes = set_kmersizes(args)
    
    # trimming calls
-   if args.trim: illuminatrim_calls = illumina_trim(args, int(args.ksizes[0]), 15, 20, 15, False)
+   if args.trim:
+      illuminatrim_calls = illumina_trim(args, int(args.ksizes[0]), 15, 20, 15, False)
+      if not os.path.exists('trimmed'):
+         os.makedirs('trimmed')
    
    # checking if files needs to be interleaved
    interleave_dict = {}    
