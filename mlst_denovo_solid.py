@@ -67,14 +67,14 @@ def start_assembly(args, logger):
    
    # submit and release jobs
    print "Submitting jobs"
-   solid_moab = Moab(solid_calls, logfile=logger, runname='run_mlst_solid', queue=args.queue, cpu=cpuV, env=env_var)
+   solid_moab = Moab(solid_calls, logfile=logger, runname='run_mlst_solid', queue=args.q, cpu=cpuV, env=env_var)
    
    # release jobs
    solid_moab.release()
    
    # semaphore
    print "Waiting for jobs to finish ..."
-   s = Semaphore(solid_moab.ids, home, 'solid', args.queue, 20, 2*86400)
+   s = Semaphore(solid_moab.ids, home, 'solid', args.q, 20, 2*86400)
    s.wait()
    print "--------------------------------------"
    

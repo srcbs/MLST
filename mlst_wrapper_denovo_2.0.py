@@ -65,7 +65,7 @@ parent_parser = argparse.ArgumentParser(add_help=False)
 parent_parser.add_argument('--sample', help='name of run and output directory [mlst_run]', default='mlst_run')
 parent_parser.add_argument('--n', help='number of threads for parallel run [4]', default=4, type=int)
 parent_parser.add_argument('--m', help='memory needed for assembly [7gb]', default='7gb')
-parent_parser.add_argument('--queue', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
+parent_parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
 parent_parser.add_argument('--log', help='log level [INFO]', default='info')
 
 # create subparsers
