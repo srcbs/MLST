@@ -124,7 +124,7 @@ def set_kmersizes(args, no_reads=10000, step=4):
    files = filter (lambda a: a != 'fasta.gz', files)
    files = filter (lambda a: a != 'fastq.gz', files)
    
-   # get aerage lengths
+   # get average lengths
    avg_lengths = []
    for f in files:
       avg_f = get_readlengths(f, no_reads)
@@ -133,6 +133,8 @@ def set_kmersizes(args, no_reads=10000, step=4):
    # get average of files and set ksizes from this
    avg = average(avg_lengths)
    ksizes = [str(floor_to_odd(avg/3)), str(floor_to_odd(avg/3*2.5)), '4']
+   # change min ksizes if it is smaller than 15. Memory requirements becomes very large at k < 15
+   if int(ksizes[0]) < 15: ksizes[0] = '15'
    sys.stderr.write('Ksizes set to (min, max, step) %s\n' % ' '.join(ksizes))
    return ksizes
       
@@ -433,35 +435,35 @@ def start_assembly(args, logger):
    
    # if trimming is needed
    if args.trim:
-      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.queue, cpu=cpuF)
+      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.q, cpu=cpuF)
       # if no interleaving is needed
       if len(interleave_calls) == 0:
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.queue, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.queue, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var)
+         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
       # if interleaving is needed
       else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.queue, cpu=cpuF, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids)
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.queue, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.queue, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids)
+         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var)
+         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
    # if no trimming
    else:
       # if no interleaving is needed
       if len(interleave_calls) == 0:
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.queue, cpu=cpuV, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.queue, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, env=env_var)
+         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
       # if interleaving is needed
       else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.queue, cpu=cpuF)
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.queue, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.queue, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF)
+         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var)
+         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
    
    # submit job for velvetparse if more than one ksize was chosen
    if len(args.ksizes) > 1:
-      velvetparse_moab = Moab(velvetparse_calls, logfile=logger, runname='run_mlst_velvetparse', queue=args.queue, cpu=cpuA, depend=True, depend_type='conc', depend_val=[len(velvetg_calls)], depend_ids=velvetg_moab.ids)
-      velvetaccept_moab = Moab(velvetaccept_calls, logfile=logger, runname='run_mlst_velvetaccept', queue=args.queue, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetparse_moab.ids) 
-      velvetclean_moab = Moab(velvetclean_calls, logfile=logger, runname='run_mlst_velvetclean', queue=args.queue, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetaccept_moab.ids)
+      velvetparse_moab = Moab(velvetparse_calls, logfile=logger, runname='run_mlst_velvetparse', queue=args.q, cpu=cpuA, depend=True, depend_type='conc', depend_val=[len(velvetg_calls)], depend_ids=velvetg_moab.ids)
+      velvetaccept_moab = Moab(velvetaccept_calls, logfile=logger, runname='run_mlst_velvetaccept', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetparse_moab.ids) 
+      velvetclean_moab = Moab(velvetclean_calls, logfile=logger, runname='run_mlst_velvetclean', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetaccept_moab.ids)
    else:
-      velvetclean_moab = Moab(velvetclean_calls, logfile=logger, runname='run_mlst_velvetclean', queue=args.queue, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetg_moab.ids)
+      velvetclean_moab = Moab(velvetclean_calls, logfile=logger, runname='run_mlst_velvetclean', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetg_moab.ids)
    
    # release jobs
    print "Releasing jobs"
@@ -476,7 +478,7 @@ def start_assembly(args, logger):
    
    # semaphore
    print "Waiting for jobs to finish ..."
-   s = Semaphore(velvetclean_moab.ids, home, 'velvet', args.queue, 20, 2*86400)
+   s = Semaphore(velvetclean_moab.ids, home, 'velvet', args.q, 20, 2*86400)
    s.wait()
    print "--------------------------------------"
 
@@ -520,6 +522,7 @@ if __name__ == '__main__':
    #args = parser.parse_args('--short fastq.gz Kleb-10-213361_2.interleaved.fastq.test.gz --ksizes 41 55 4 --sample Kleb'.split())
    #args = parser.parse_args('--shortPaired fastq /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_1_sequence.txt /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_2_sequence.txt --ksizes 21 45 4 --sample TG8130'.split())
    #args = parser.parse_args('--shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 33 75 4 --sample kleb_wtrim --trim'.split())
+   #args = parser.parse_args('--short /panvol1/simon/projects/cge/EHEC/illumina/bgi/110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --outpath assembly'.split())
 
    # add_velveth and add_velvetg works from commandline, eg:
    # mlst_denovo_velvet.py --short fastq.gz interleaved.fastq.gz --ksizes 33 --sample Kleb --add_velvetg "-very_clean yes"
