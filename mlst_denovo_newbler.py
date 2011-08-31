@@ -96,8 +96,8 @@ def start_assembly(args, logger):
    
    # submit and release jobs
    print "Submitting jobs"
-   newbler_moab = Moab(newbler_calls, logfile=logger, runname='run_mlst_newbler', queue=args.queue, cpu=cpuV, env=env_var)
-   newblerstats_moab = Moab(newblerstats_calls, logfile=logger, runname='run_mlst_newblerstats', queue=args.queue, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=newbler_moab.ids)
+   newbler_moab = Moab(newbler_calls, logfile=logger, runname='run_mlst_newbler', queue=args.q, cpu=cpuV, env=env_var)
+   newblerstats_moab = Moab(newblerstats_calls, logfile=logger, runname='run_mlst_newblerstats', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=newbler_moab.ids)
    
    # release jobs
    newbler_moab.release()
@@ -105,7 +105,7 @@ def start_assembly(args, logger):
    
    # semaphore
    print "Waiting for jobs to finish ..."
-   s = Semaphore(newblerstats_moab.ids, home, 'newbler', args.queue, 20, 2*86400)
+   s = Semaphore(newblerstats_moab.ids, home, 'newbler', args.q, 20, 2*86400)
    s.wait()
    print "--------------------------------------"
    
