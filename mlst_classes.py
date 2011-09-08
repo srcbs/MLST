@@ -10,7 +10,7 @@ class Moab:
       Jobs are submitted as hold by default and should be released using Moab.release().
    '''
    
-   def __init__(self, calls, logfile=None, runname='run_test', queue='cbs', cpu='nodes=1:ppn=1,mem=2gb,walltime=43200', depend=False, depend_type='one2one', depend_val=[], hold=True, depend_ids=[], env=None):
+   def __init__(self, calls, logfile=None, runname='run_test', queue='cbs', cpu='nodes=1:ppn=1,mem=2gb,walltime=43200', depend=False, depend_type='one2one', depend_val=[], hold=True, depend_ids=[], env=None, host=None):
       '''Constructor for Moab class'''
       self.calls = calls
       self.runname = runname
@@ -23,13 +23,14 @@ class Moab:
       self.hold = hold
       self.depend_ids = depend_ids
       self.env = env
+      self.host = host
       
       # put jobs in queue upon construction
       self.dispatch()
    
    def __repr__(self):
       '''Return string of attributes'''
-      msg = 'Moab(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)' % ("["+", ".join(self.calls)+"]", self.logfile, self.runname, self.queue,  self.cpu, str(self.depend), self.depend_type, "["+", ".join(map(str,self.depend_val))+"]", str(self.hold), "["+", ".join(self.depend_ids)+"]", self.env)
+      msg = 'Moab(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)' % ("["+", ".join(self.calls)+"]", self.logfile, self.runname, self.queue,  self.cpu, str(self.depend), self.depend_type, "["+", ".join(map(str,self.depend_val))+"]", str(self.hold), "["+", ".join(self.depend_ids)+"]", self.env, self.host)
       return msg
    
    def get_logger(self):
@@ -109,6 +110,25 @@ class Moab:
                raise AttributeError('depend_type not recognized: %s' % self.depend_type)
       return depends
    
+   def ssh_submit(self, host, cmd):
+      '''Will ssh to host, submit commands and return job ids'''
+      
+      import paramiko, base64
+      import os
+      
+      client = paramiko.SSHClient()
+      client.load_system_host_keys()
+      client.set_missing_host_key_policy(paramiko.WarningPolicy())
+      client.connect(host)
+      
+      stdin, stdout, stderr = client.exec_command(cmd)
+      for line in stdout:
+         id = line.rstrip('\n')
+      err_msg = ''.join(stderr)
+      
+      client.close()      
+      return id, err_msg
+
    def submit_xmsub(self, depends, logger):
       '''Submits jobs using xmsub'''
       
@@ -133,7 +153,7 @@ class Moab:
             stdout = '%s/%s' % (home, match.group(2))
          
          # create xmsub commands
-         cmd = '/panvol1/simon/bin/pipeline/xmsub'
+         cmd = '/panvol1/simon/bin/mlst/xmsub'
          
          # toggle if job should be on hold or env variable should be added
          if self.hold: cmd = '%s -h ' % cmd
@@ -144,20 +164,28 @@ class Moab:
          else:
             xmsub = cmd+' -d %s -l %s,depend=%s -O %s -E %s -r y -q %s -N %s -t %s' % (home, self.cpu, depends[i], stdout, stderr, self.queue, self.runname, call)
          
-         time.sleep(0.1)
+         time.sleep(1)
          if logger: logger.info(xmsub)
-                   
-         # submit
-         try:
-            id = subprocess.check_output(xmsub, shell=True)
-            #print id
-         except:
-            print 'Job error, waiting 1m'
-            time.sleep(60)
-            id = subprocess.check_output(xmsub, shell=True)
-         ids.append(id.split('\n')[1])
-         #print ids
-      return(ids)
+         
+         # submit on different host if that is given
+         if self.host:
+            try:
+               (id, stderr) = self.ssh_submit(self.host, xmsub)
+            except:
+               print stderr
+               print 'Job error, waiting 1m'
+               time.sleep(60)
+               (id, stderr) = self.ssh_submit(self.host, xmsub)
+            ids.append(id)
+         else:
+            try:
+               id = subprocess.check_output(xmsub, shell=True)
+            except:
+               print 'Job error, waiting 1m'
+               time.sleep(60)
+               id = subprocess.check_output(xmsub, shell=True)
+            ids.append(id.split('\n')[1])
+      return ids
    
    def submit_wrapcmd(self, depends, logger):
       '''Take input as command and submit to msub (this way pipes and redirects can be done)'''
@@ -175,7 +203,7 @@ class Moab:
          call = self.calls[i]
          N = 10
          rand = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(N))
-         filename = 'pbsjob.tmp%s' % rand
+         filename = '%s/pbsjob.tmp%s' % (home, rand)
          
          stdout = '%s/log/%s%i.o' % (home, self.runname, i)
          stderr = '%s/log/%s%i.e' % (home, self.runname, i)
@@ -198,17 +226,27 @@ class Moab:
          else:
             msub = '%s -d %s -l %s,depend=%s -o %s -e %s -q %s -r y -N %s %s' % (cmd, home, self.cpu, depends[i], stdout, stderr, self.queue, self.runname, filename)
          
-         time.sleep(0.1)
+         time.sleep(1)
          if logger: logger.info(msub)
-         # submit
-         try:
-            id = subprocess.check_output(msub, shell=True)
-            #print id
-         except:
-            print 'Job error, waiting 1m'
-            time.sleep(60)
-            id = subprocess.check_output(msub, shell=True)
-         ids.append(id.split('\n')[1])
+
+         # submit on different host if that is given
+         if self.host:
+            try:
+               (id, stderr) = self.ssh_submit(self.host, msub)
+            except:
+               print stderr
+               print 'Job error, waiting 1m'
+               time.sleep(60)
+               (id, stderr) = self.ssh_submit(self.host, msub)
+            ids.append(id)
+         else:
+            try:
+               id = subprocess.check_output(msub, shell=True)
+            except:
+               print 'Job error, waiting 1m'
+               time.sleep(60)
+               id = subprocess.check_output(msub, shell=True)
+            ids.append(id.split('\n')[1])
          
          # remove pbsjob file
          #rm_files([filename])
@@ -238,26 +276,45 @@ class Moab:
          self.ids = self.submit_xmsub(depends, logger)
       
    
-   def release(self):
+   def release(self, host):
       '''Release submitted jobs from hold'''
       
       import subprocess
       
-      while len(self.ids) > 0:
-         if len(self.ids) > 199:
-            cmd = 'mjobctl -u user \"%s\"' % (' ').join(self.ids[:199])
-            del self.ids[:199]
-            out = subprocess.check_output(cmd, shell=True)
-         else:
-            cmd = 'mjobctl -u user \"%s\"' % (' ').join(self.ids)
-            out = subprocess.check_output(cmd, shell=True)
-            break
+      if host:
+         import paramiko, base64
+         import os
+         
+         client = paramiko.SSHClient()
+         client.load_system_host_keys()
+         client.set_missing_host_key_policy(paramiko.WarningPolicy())
+         client.connect(host)
+         
+         while len(self.ids) > 0:
+            if len(self.ids) > 199:
+               cmd = 'mjobctl -u user \"%s\"' % (' ').join(self.ids[:199])
+               del self.ids[:199]
+               stdin, stdout, stderr = client.exec_command(cmd)
+            else:
+               cmd = 'mjobctl -u user \"%s\"' % (' ').join(self.ids)
+               stdin, stdout, stderr = client.exec_command(cmd)
+               break
+      else:
+         while len(self.ids) > 0:
+            if len(self.ids) > 199:
+               cmd = 'mjobctl -u user \"%s\"' % (' ').join(self.ids[:199])
+               del self.ids[:199]
+               out = subprocess.check_output(cmd, shell=True)
+            else:
+               cmd = 'mjobctl -u user \"%s\"' % (' ').join(self.ids)
+               out = subprocess.check_output(cmd, shell=True)
+               break
 
 
 class Semaphore:
    '''Wait for files to be created, times are in seconds'''
    
-   def __init__(self, semaphore_ids, home, file_prefix, queue, check_interval, max_time):
+   def __init__(self, semaphore_ids, home, file_prefix, queue, check_interval, max_time, host=None):
       '''Constructor for Semaphore class'''
       self.semaphore_ids = semaphore_ids
       self.home = home
@@ -265,6 +322,27 @@ class Semaphore:
       self.queue = queue
       self.check_interval = check_interval
       self.max_time = max_time
+      self.host = host
+   
+   def ssh_submit(self, host, cmd):
+      '''Will ssh to host, submit commands and return job ids'''
+      
+      import paramiko, base64
+      import os
+      
+      client = paramiko.SSHClient()
+      client.load_system_host_keys()
+      client.set_missing_host_key_policy(paramiko.WarningPolicy())
+      client.connect(host)
+      
+      stdin, stdout, stderr = client.exec_command(cmd)
+      id = ''
+      for line in stdout:
+         id = line.rstrip('\n')
+      err_msg = ''.join(stderr)
+      
+      client.close()      
+      return id, err_msg
    
    def wait(self):
       '''Wait for files to be created'''
@@ -286,10 +364,17 @@ class Semaphore:
       semaphore_file = 'semaphores/' + self.file_prefix + '.' + rand
       semaphore_file_err = 'log/' + self.file_prefix + '.' + rand + '.err'
       
-      # submit job 
+      # create job 
       depends = ':'.join(self.semaphore_ids)
       xmsub = '%sxmsub -d %s -l ncpus=1,mem=10mb,walltime=180,depend=%s -O %s -q %s -N semaphores -E %s -r y -t echo done' % (paths['mlst_home'], self.home, depends, semaphore_file, self.queue, semaphore_file_err)
-      dummy_id = subprocess.check_output(xmsub, shell=True)
+      
+      # submit job
+      if self.host:
+         dummy_id, stderr = self.ssh_submit(self.host, xmsub)
+         if stderr:
+            print stderr
+      else:
+         dummy_id = subprocess.check_output(xmsub, shell=True)
       
       # check for file to appear
       cnt = self.max_time
@@ -300,3 +385,36 @@ class Semaphore:
          sleep(self.check_interval)
       if cnt <= 0:
          raise SystemExit('%s did not finish in %is' % ())
+
+class Semaphore_file:
+   '''Wait for a file to appear'''
+   
+   def __init__(self, semaphore_file, check_interval, max_time):
+      '''Constructor for Semaphore_file class'''
+      self.semaphore_file = semaphore_file
+      self.check_interval = check_interval
+      self.max_time = max_time
+   
+   def wait(self):
+      '''Wait for files to be created'''
+      
+      import os
+      import subprocess
+      from time import sleep
+      
+      # add directory and set semaphore filename
+      if not os.path.exists('semaphores/'):
+         os.makedirs('semaphores/')
+      
+      # check for file to appear
+      cnt = self.max_time
+      while cnt > 0:
+         if os.path.isfile(self.semaphore_file):
+            break
+         cnt -= self.check_interval
+         sleep(self.check_interval)
+      if cnt <= 0:
+         raise SystemExit('%s did not finish in %is' % ())
+   
+   
+   

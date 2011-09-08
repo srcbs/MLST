@@ -3,6 +3,8 @@
 import argparse
 import logging
 import os
+from mlst_classes import Semaphore_file
+import mlst_modules
 
 def required_nargs_abspath(min,max):
    '''Enforces input to nargs to be between min and max long and sets abspath for input 1:'''
@@ -55,6 +57,50 @@ def set_abspath():
             setattr(args, self.dest, filenames)
    return SetAbspath
 
+def create_jobs(prog, args, sfile, logger):
+   '''Create an msub command from prog and args'''
+   
+   import subprocess
+   import os
+   
+   # create commands
+   msub = 'xmsub -d %s -l nodes=1:ppn=1,mem=256mb,walltime=172800 -q cbs -r y -N run_%s -O run_%s.out -E run_%s.err -t' % (os.getcwd(), args.assembler, args.assembler, args.assembler)
+   cmd = [msub, prog]
+   
+   # create parameters for assembler
+   for key, value in vars(args).items():
+      # special cases
+      if key == 'assembler':
+         continue
+      if value == None:
+         continue
+      if key == 'wait':
+         cmd.append('--sfile %s' % sfile)
+         continue
+      if type(value) == bool:
+         if value == True: cmd.append('--%s' % key)
+         continue
+      if key == 'sample':
+         cmd.append('--sample None')
+         continue
+      
+      # key-value paramters
+      cmd.append('--%s' %key)
+      if type(value) == list:
+         cmd.append(' '.join(value))
+      elif type(value) == str or type(value) == int:
+         cmd.append('%s' %value)
+      else:
+         raise ValueError('%s, %s is a %s, should be either list, string or int' % (key, value, type(value)))
+   
+   # submit job
+   cmd = ' '.join(cmd)
+   logger.info(cmd)
+   job = subprocess.check_call(cmd, shell=True)
+   print 'Jobs are spawned by: %s' % job
+   
+
+
 parser = argparse.ArgumentParser(prog='mlst_wrapper_denovo_2.0.py',
                                  formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=25),
                                  description='''Wrapper to start denovo assembly for MLST''', 
@@ -67,6 +113,7 @@ parent_parser.add_argument('--n', help='number of threads for parallel run [4]',
 parent_parser.add_argument('--m', help='memory needed for assembly [7gb]', default='7gb')
 parent_parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
 parent_parser.add_argument('--log', help='log level [INFO]', default='info')
+parent_parser.add_argument('--wait', help='wait for assembly, ONLY www [False]', default=False, action='store_true')
 
 # create subparsers
 subparsers = parser.add_subparsers(dest='assembler')
@@ -111,11 +158,12 @@ parser_solid.add_argument('--add_solid', help='additional parameters to solid as
 args = parser.parse_args()
 #args = parser.parse_args('velvet --shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 41 55 4 --trim'.split())
 #args = parser.parse_args('velvet --shortPaired Kleb-10-213361_2.interleaved.fastq --trim --sample Kleb_auto'.split())
-
 #args = parser.parse_args('velvet --short 110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --ksizes 45 75 --sample E_coli_TY2482_illumina --trim'.split())
+#args = parser.parse_args('velvet --shortPaired test_kleb_1.fq test_kleb_2.fq --ksizes 41 55 4 --sample test_kleb --wait'.split())
 
 # set pythonpath
 os.environ['PYTHONPATH'] = '/panvol1/simon/lib/python/:/panvol1/simon/bin/mlst/'
+paths = mlst_modules.setSystem()
 
 # If working dir is given, create and move to working directory else run where program is invoked
 if args.sample:
@@ -139,10 +187,19 @@ logger.addHandler(hdlr)
 if args.log == 'info':
    logger.setLevel(logging.INFO)
 
+# toggle waiting
+if args.wait:
+   import random
+   import string
+   rand = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(10))
+   sfile = 'semaphores/denovo%s' % rand
+else:
+   sfile = None
+
+# create jobs
 if args.assembler == 'velvet':
-   from mlst_denovo_velvet import *
-   set_filetypes(args)
-   start_assembly(args, logger)
+   prog = '%smlst_denovo_velvet.py' % paths['mlst_home']
+   create_jobs(prog, args, sfile, logger)
 elif args.assembler == 'newbler':
    from mlst_denovo_newbler import *
    start_assembly(args, logger)
@@ -150,4 +207,7 @@ elif args.assembler == 'solid':
    from mlst_denovo_solid import *
    start_assembly(args, logger)
 
-   
+# if waiting
+if args.wait:
+   s = Semaphore_file(sfile, 60, 2*86400)
+   s.wait()

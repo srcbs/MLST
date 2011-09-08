@@ -132,9 +132,14 @@ def set_kmersizes(args, no_reads=10000, step=4):
    
    # get average of files and set ksizes from this
    avg = average(avg_lengths)
-   ksizes = [str(floor_to_odd(avg/3)), str(floor_to_odd(avg/3*2.5)), '4']
+   if avg <= 75: ksizes = [str(floor_to_odd(avg/3*1)), str(floor_to_odd(avg/3*2.5)), '4']
+   elif avg <= 100: ksizes = [str(floor_to_odd(avg/3*1.25)), str(floor_to_odd(avg/3*2.25)), '4']
+   elif avg <= 150: ksizes = [str(floor_to_odd(avg/3*1)), str(floor_to_odd(avg/3*2.25)), '4']
+   
    # change min ksizes if it is smaller than 15. Memory requirements becomes very large at k < 15
+   # change max ksizes if larger than 99, only compiled to 99 as max
    if int(ksizes[0]) < 15: ksizes[0] = '15'
+   if int(ksizes[1]) > 99: ksizes[1] == '99'
    sys.stderr.write('Ksizes set to (min, max, step) %s\n' % ' '.join(ksizes))
    return ksizes
       
@@ -259,14 +264,15 @@ def interleave(i, sample):
       return (None, i)
         
 
-def create_velveth_calls(args):
-   '''Return velveth calls'''
+def create_velvet_calls(args):
+   '''Create velvet calls'''
    
    import mlst_modules
    paths = mlst_modules.setSystem()
-   cmd = '%svelveth' % paths['velvet_home']
    
+   # VELVETH CALLS
    # create calls, outpath, ksizes, format, readtypes, reads
+   cmd = '%svelveth' % paths['velvet_home']
    velveth_calls = []
    if len(args.ksizes) == 1:
       arg = ' %s %s ' % (args.outpath, args.ksizes[0])
@@ -276,6 +282,7 @@ def create_velveth_calls(args):
       if args.shortPaired2: arg = arg + ' -shortPaired2 -%s %s' % (args.shortPaired2[0], args.shortPaired2[1])
       if args.long: arg = arg + ' -long -%s %s' % (args.long[0], ' '.join(args.long[1:]))
       if args.longPaired: arg = arg + ' -longPaired -%s %s' % (args.longPaired[0], args.longPaired[1])
+      if args.add_velveth: arg = arg + ' %s' % args.add_velveth
       call = cmd + arg
       velveth_calls.append(call)
    elif len(args.ksizes) >= 2 and len(args.ksizes) <= 3:
@@ -293,19 +300,15 @@ def create_velveth_calls(args):
          if args.shortPaired2: arg = arg + ' -shortPaired2 -%s %s' % (args.shortPaired2[0], args.shortPaired2[1])
          if args.long: arg = arg + ' -long -%s %s' % (args.long[0], ' '.join(args.long[1:]))
          if args.longPaired: arg = arg + ' -longPaired -%s %s' % (args.longPaired[0], args.longPaired[1])
+         if args.add_velveth: arg = arg + ' %s' % args.add_velveth
          call = cmd + arg
          velveth_calls.append(call)
    else:
-      raise ValueError('ksizes must be one value giving ksize, two values giving lower and upper limit (step will be 2) or three values giving lower limit, upper limit and step')
-   return velveth_calls   
-
-def create_velvetg_calls(args):
-   '''Return velvetg calls'''
+      raise ValueError('ksizes must be one value giving ksize, two values giving lower and upper limit (step will be 2) or three values giving lower limit, upper limit and step')  
    
-   import mlst_modules   
-   paths = mlst_modules.setSystem()
-   
+   # VELVETG CALLS
    # create cmd
+   cmd = '%svelvetg' % paths['velvet_home']
    cmds = []
    if len(args.ksizes) == 1:
       cmd = '%svelvetg %s' % (paths['velvet_home'], args.outpath)
@@ -330,53 +333,69 @@ def create_velvetg_calls(args):
       if args.ins_length: arg = arg + ' -ins_length %i' % args.ins_length
       if args.add_velvetg: arg = arg + ' %s' % args.add_velvetg
       velvetg_calls.append(cmds[i]+arg)
-    
-   return velvetg_calls
-
-def get_best_assembly(args):
-   '''Identify the best assembly from several k-mers'''
    
-   # read in stats.txt files for each assembly. Calc sum of contigs and N50.
+   # COMBINE IN SH-FILES #
+   sh_calls = []
+   for i in range(len(velveth_calls)):
+      fh = open('velvet%i.sh' % i, 'w')
+      fh.write('#!/bin/sh\n\n')
+      fh.write(velveth_calls[i]+'\n')
+      fh.write(velvetg_calls[i]+'\n')
+      fh.close()
+      sh_calls.append('sh velvet%i.sh' %i)
+   return sh_calls
+
+
+
+def postprocess(args):
+   '''Determine best assembly, remove other assemblies, clean up and write semaphore file (if required)'''
+   
    import mlst_modules
    paths = mlst_modules.setSystem()
    
-   cmd = '%sR-2.12 --vanilla ' % paths['R_home']
-   
-   # set argument
-   if len(args.ksizes) == 1:
-      arg = ' %s %s' % (args.outpath, args.ksizes[0])
-   elif len(args.ksizes) >= 2:
-      if len(args.ksizes) == 2:
-         step = 2
-      elif len(args.ksizes) == 3:
-         step = args.ksizes[2]
+   calls = []
+   if len(args.ksizes) > 1:
+      ## parse_assemblies
+      cmd = '%sR-2.12 --vanilla ' % paths['R_home']
       
-      arg_list = []
-      for k in range(int(args.ksizes[0]), int(args.ksizes[1]), int(step)):
-         out = '%s_%s/stats.txt %s' % (args.outpath, k, k)
-         arg_list.append(out)
-      arg = ' '.join(arg_list)
-   
-   call = [cmd + arg + ' < %smlst_denovo_velvet_parse.R' % (paths['mlst_home'])]
-   return call
-
-def accept_assembly(args):
-   '''Parse best assembly and remove other assemblies'''
-   
-   import mlst_modules
-   paths = mlst_modules.setSystem()
-   
-   call = '%smlst_denovo_velvet_accept.py %s' % (paths['mlst_home'], args.outpath)
-   return [call]
-
-def clean():
-   '''Clean sample directory'''
-   
-   import mlst_modules
-   paths = mlst_modules.setSystem()
-   
+      # set argument
+      if len(args.ksizes) == 1:
+         arg = ' %s %s' % (args.outpath, args.ksizes[0])
+      elif len(args.ksizes) >= 2:
+         if len(args.ksizes) == 2:
+            step = 2
+         elif len(args.ksizes) == 3:
+            step = args.ksizes[2]
+         
+         arg_list = []
+         for k in range(int(args.ksizes[0]), int(args.ksizes[1]), int(step)):
+            out = '%s_%s/stats.txt %s' % (args.outpath, k, k)
+            arg_list.append(out)
+         arg = ' '.join(arg_list)
+      
+      call = cmd + arg + ' < %smlst_denovo_velvet_parse.R' % (paths['mlst_home'])
+      calls.append(call)
+      
+      ## accept assembly
+      call = '%smlst_denovo_velvet_accept.py %s' % (paths['mlst_home'], args.outpath)
+      calls.append(call)
+      
+   ## clean
    call = '%smlst_denovo_velvet_clean.py' % (paths['mlst_home'])
-   return [call]
+   calls.append(call)
+   
+   ## write semaphore
+   if args.sfile and args.sfile != 'None': calls.append('echo "done" > %s' % args.sfile)
+      
+   ## write in bash script
+   fh = open('postprocess.sh', 'w')
+   fh.write('#!/bin/sh\n\n')
+   for call in calls:
+      fh.write(call+'\n')
+   fh.close()
+   
+   return ['sh postprocess.sh']
+   
 
 def start_assembly(args, logger):
    '''Start assembly'''
@@ -395,6 +414,9 @@ def start_assembly(args, logger):
    cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
    cpuF = 'nodes=1:ppn=2,mem=2gb,walltime=172800'
    cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
+   
+   # set filetypes
+   set_filetypes(args)
    
    # set kmersizes (if auto)
    if args.ksizes == ['auto']:
@@ -419,69 +441,48 @@ def start_assembly(args, logger):
          interleave_calls.append(value)
    
    # velvet calls
-   velveth_calls = create_velveth_calls(args)
-   velvetg_calls = create_velvetg_calls(args)
+   velvet_calls = create_velvet_calls(args)
    
    # velvet parse calls
-   velvetparse_calls = get_best_assembly(args)
-   velvetaccept_calls = accept_assembly(args)
-   velvetclean_calls = clean()
+   postprocess_calls = postprocess(args)
    
    # set environment variable:
    env_var = 'OMP_NUM_THREADS=%i' % int(args.n - 1)
    
    # submit and release jobs
+   # NB: mlst_denovo_velvet is run from a compute node, it will then ssh to "host" and submit the jobs from there (cge-s2)
    print "Submitting jobs"
    
    # if trimming is needed
    if args.trim:
-      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.q, cpu=cpuF)
+      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.q, cpu=cpuF, host='cge-s2.cbs.dtu.dk')
       # if no interleaving is needed
       if len(interleave_calls) == 0:
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var, host='cge-s2.cbs.dtu.dk')
       # if interleaving is needed
       else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids)
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, host='cge-s2.cbs.dtu.dk')
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, host='cge-s2.cbs.dtu.dk')
    # if no trimming
    else:
       # if no interleaving is needed
       if len(interleave_calls) == 0:
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, env=env_var, host='cge-s2.cbs.dtu.dk')
       # if interleaving is needed
       else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF)
-         velveth_moab = Moab(velveth_calls, logfile=logger, runname='run_mlst_velveth', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var)
-         velvetg_moab = Moab(velvetg_calls, logfile=logger, runname='run_mlst_velvetg', queue=args.q, cpu=cpuV, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velveth_moab.ids)
+         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, host='cge-s2.cbs.dtu.dk')
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, host='cge-s2.cbs.dtu.dk')
    
-   # submit job for velvetparse if more than one ksize was chosen
-   if len(args.ksizes) > 1:
-      velvetparse_moab = Moab(velvetparse_calls, logfile=logger, runname='run_mlst_velvetparse', queue=args.q, cpu=cpuA, depend=True, depend_type='conc', depend_val=[len(velvetg_calls)], depend_ids=velvetg_moab.ids)
-      velvetaccept_moab = Moab(velvetaccept_calls, logfile=logger, runname='run_mlst_velvetaccept', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetparse_moab.ids) 
-      velvetclean_moab = Moab(velvetclean_calls, logfile=logger, runname='run_mlst_velvetclean', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetaccept_moab.ids)
-   else:
-      velvetclean_moab = Moab(velvetclean_calls, logfile=logger, runname='run_mlst_velvetclean', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=velvetg_moab.ids)
+   # submit job for postprocessing
+   postprocess_moab = Moab(postprocess_calls, logfile=logger, runname='run_mlst_postprocess', queue=args.q, cpu=cpuA, depend=True, depend_type='conc', depend_val=[len(velvet_calls)], depend_ids=velvet_moab.ids, host='cge-s2.cbs.dtu.dk')
    
    # release jobs
    print "Releasing jobs"
-   if args.trim and len(illuminatrim_calls) > 0: illuminatrim_moab.release()
-   if len(interleave_calls) > 0: interleave_moab.release()
-   velveth_moab.release()
-   velvetg_moab.release()
-   if len(args.ksizes) > 1: 
-      velvetparse_moab.release()
-      velvetaccept_moab.release()
-   velvetclean_moab.release()
+   if args.trim and len(illuminatrim_calls) > 0: illuminatrim_moab.release(host='cge-s2.cbs.dtu.dk')
+   if len(interleave_calls) > 0: interleave_moab.release('cge-s2.cbs.dtu.dk')
+   velvet_moab.release('cge-s2.cbs.dtu.dk')
+   postprocess_moab.release(host='cge-s2.cbs.dtu.dk')
    
-   # semaphore
-   print "Waiting for jobs to finish ..."
-   s = Semaphore(velvetclean_moab.ids, home, 'velvet', args.q, 20, 2*86400)
-   s.wait()
-   print "--------------------------------------"
-
 
 if __name__ == '__main__':
    import os
@@ -514,8 +515,9 @@ if __name__ == '__main__':
    parser.add_argument('--add_velvetg', help='additional parameters to velvetg', default=None)
    parser.add_argument('--n', help='number of threads for parallel run [4]', default=4, type=int)
    parser.add_argument('--m', help='memory needed for assembly [2gb]', default='2gb')
-   parser.add_argument('--queue', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
+   parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
    parser.add_argument('--log', help='log level [info]', default='info')
+   parser.add_argument('--sfile', help='semaphore file for waiting [None]', default=None)
 
    args = parser.parse_args()
    #args = parser.parse_args('--short fastq test_1.fq test_2.fq --ksizes 33 49 4 --outpath test'.split())
@@ -523,12 +525,13 @@ if __name__ == '__main__':
    #args = parser.parse_args('--shortPaired fastq /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_1_sequence.txt /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_2_sequence.txt --ksizes 21 45 4 --sample TG8130'.split())
    #args = parser.parse_args('--shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 33 75 4 --sample kleb_wtrim --trim'.split())
    #args = parser.parse_args('--short /panvol1/simon/projects/cge/EHEC/illumina/bgi/110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --outpath assembly'.split())
-
+   #args = parser.parse_args('--sample None --outpath assembly --min_contig_lgth 100 --exp_cov auto --log info --shortPaired /panvol1/simon/projects/cge/test/test_kleb_1.fq /panvol1/simon/projects/cge/test/test_kleb_2.fq --sfile semaphores/denovo --ksizes 41 55 4 --m 7gb --n 4 --q cge'.split())
+   
    # add_velveth and add_velvetg works from commandline, eg:
    # mlst_denovo_velvet.py --short fastq.gz interleaved.fastq.gz --ksizes 33 --sample Kleb --add_velvetg "-very_clean yes"
    
    # change to sample dir if set
-   if args.sample:
+   if args.sample and args.sample != 'None':
       if not os.path.exists(args.sample):
          os.makedirs(args.sample)
       os.chmod(args.sample, 0777)
