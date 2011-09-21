@@ -62,9 +62,12 @@ def create_jobs(prog, args, sfile, logger):
    
    import subprocess
    import os
+   import mlst_modules
+   
+   paths = mlst_modules.setSystem()
    
    # create commands
-   msub = 'xmsub -d %s -l nodes=1:ppn=1,mem=256mb,walltime=172800 -q cbs -r y -N run_%s -O run_%s.out -E run_%s.err -t' % (os.getcwd(), args.assembler, args.assembler, args.assembler)
+   msub = '%sxmsub -d %s -l nodes=1:ppn=1,mem=256mb,walltime=172800,partition=%s -q %s -r y -N run_%s -O run_%s.out -E run_%s.err -t' % (paths['mlst_home'], os.getcwd(), args.partition, args.q, args.assembler, args.assembler, args.assembler)
    cmd = [msub, prog]
    
    # create parameters for assembler
@@ -83,12 +86,21 @@ def create_jobs(prog, args, sfile, logger):
       if key == 'sample':
          cmd.append('--sample None')
          continue
+      if key == 'add_solid':
+         cmd.append('--add_solid "%s"' % value)
+         continue
+      if key == 'add_velveth':
+         cmd.append('--add_velveth "%s"' % value)
+         continue
+      if key == 'add_velvetg':
+         cmd.append('--add_velvetg "%s"' % value)
+         continue
       
       # key-value paramters
       cmd.append('--%s' %key)
       if type(value) == list:
          cmd.append(' '.join(value))
-      elif type(value) == str or type(value) == int:
+      elif type(value) == str or type(value) == int or type(value) == float:
          cmd.append('%s' %value)
       else:
          raise ValueError('%s, %s is a %s, should be either list, string or int' % (key, value, type(value)))
@@ -96,7 +108,8 @@ def create_jobs(prog, args, sfile, logger):
    # submit job
    cmd = ' '.join(cmd)
    logger.info(cmd)
-   job = subprocess.check_call(cmd, shell=True)
+   job = subprocess.check_output(cmd, shell=True)
+   job = job.strip('\n')
    print 'Jobs are spawned by: %s' % job
    
 
@@ -111,6 +124,7 @@ parent_parser = argparse.ArgumentParser(add_help=False)
 parent_parser.add_argument('--sample', help='name of run and output directory [mlst_run]', default='mlst_run')
 parent_parser.add_argument('--n', help='number of threads for parallel run [4]', default=4, type=int)
 parent_parser.add_argument('--m', help='memory needed for assembly [7gb]', default='7gb')
+parent_parser.add_argument('--partition', help='partition to run on (cge-cluster, uv) [cge-cluster]', default='cge-cluster')
 parent_parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
 parent_parser.add_argument('--log', help='log level [INFO]', default='info')
 parent_parser.add_argument('--wait', help='wait for assembly, ONLY www [False]', default=False, action='store_true')
@@ -131,7 +145,7 @@ parser_velvet.add_argument('--ksizes', help='kmers to run assemblies for (single
 parser_velvet.add_argument('--outpath', help='name of run, also output dir [assembly]', default='assembly')
 parser_velvet.add_argument('--trim', help='should input files be trimmed (illumina only) [False]', default=False, action='store_true')
 parser_velvet.add_argument('--min_contig_lgth', help='mininum length to report contig [100]', default=100, type=int)
-parser_velvet.add_argument('--cov_cut', help='coverage cutoff for removal of low coverage (float) [None]', default=None, type=float)
+parser_velvet.add_argument('--cov_cutoff', help='coverage cutoff for removal of low coverage (float) [None]', default=None, type=float)
 parser_velvet.add_argument('--exp_cov', help='Expected mean coverage (None, float, auto) [auto]', default='auto')
 parser_velvet.add_argument('--ins_length', help='insert size (reads included) [None]', default=None, type=int)
 parser_velvet.add_argument('--add_velveth', help='additional parameters to velveth', default=None)
@@ -159,7 +173,9 @@ args = parser.parse_args()
 #args = parser.parse_args('velvet --shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 41 55 4 --trim'.split())
 #args = parser.parse_args('velvet --shortPaired Kleb-10-213361_2.interleaved.fastq --trim --sample Kleb_auto'.split())
 #args = parser.parse_args('velvet --short 110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --ksizes 45 75 --sample E_coli_TY2482_illumina --trim'.split())
-#args = parser.parse_args('velvet --shortPaired test_kleb_1.fq test_kleb_2.fq --ksizes 41 55 4 --sample test_kleb --wait'.split())
+#args = parser.parse_args('velvet --shortPaired test_kleb_1.fq test_kleb_2.fq --ksizes 41 55 4 --sample test_kleb --cov_cutoff 8'.split())
+#args = parser.parse_args('newbler --se life_unimuenster_sff/*.sff --sample test_newbler --wait'.split())
+#args = parser.parse_args('solid --mp ecoli_600x_F3.csfasta ecoli_600x_F3.qual ecoli_600x_R3.csfasta ecoli_600x_R3.qual --rf 5000000 --ins_length 1300 --ins_length_sd 300 --m 7gb --sample solid_test --wait'.split())
 
 # set pythonpath
 os.environ['PYTHONPATH'] = '/panvol1/simon/lib/python/:/panvol1/simon/bin/mlst/'
@@ -201,11 +217,11 @@ if args.assembler == 'velvet':
    prog = '%smlst_denovo_velvet.py' % paths['mlst_home']
    create_jobs(prog, args, sfile, logger)
 elif args.assembler == 'newbler':
-   from mlst_denovo_newbler import *
-   start_assembly(args, logger)
+   prog = '%smlst_denovo_newbler.py' % paths['mlst_home']
+   create_jobs(prog, args, sfile, logger)
 elif args.assembler == 'solid':
-   from mlst_denovo_solid import *
-   start_assembly(args, logger)
+   prog = '%smlst_denovo_solid.py' % paths['mlst_home']
+   create_jobs(prog, args, sfile, logger)
 
 # if waiting
 if args.wait:

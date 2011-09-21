@@ -323,12 +323,12 @@ def create_velvet_calls(args):
          cmd = '%svelvetg %s_%s' % (paths['velvet_home'], args.outpath, k)
          cmds.append(cmd)
    
-   # create arg: cov_cut, exp_cov, ins_length, add_velvetg
+   # create arg: cov_cutoff, exp_cov, ins_length, add_velvetg
    velvetg_calls = []
    # add other parameters
    for i in range(len(cmds)):
       arg = ' -min_contig_lgth %i' % args.min_contig_lgth
-      if args.cov_cut: arg = arg + ' -cov_cut %f' % args.cov_cut
+      if args.cov_cutoff: arg = arg + ' -cov_cutoff %f' % args.cov_cutoff
       if args.exp_cov != "None": arg = arg + ' -exp_cov %s' % args.exp_cov
       if args.ins_length: arg = arg + ' -ins_length %i' % args.ins_length
       if args.add_velvetg: arg = arg + ' %s' % args.add_velvetg
@@ -408,12 +408,20 @@ def start_assembly(args, logger):
    # set queueing
    paths = mlst_modules.setSystem()
    home = os.getcwd()
-   cpuV = 'nodes=1:ppn=%i,mem=%s,walltime=172800' % (args.n, args.m)
-   cpuA = 'nodes=1:ppn=1,mem=512mb,walltime=172800'
-   cpuC = 'nodes=1:ppn=1,mem=2gb,walltime=172800'
-   cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
-   cpuF = 'nodes=1:ppn=2,mem=2gb,walltime=172800'
-   cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
+   if args.partition == 'uv':
+      cpuV = 'ncpus=%i,mem=%s,walltime=172800' % (args.n, args.m)
+      cpuA = 'ncpus=1,mem=512mb,walltime=172800'
+      cpuC = 'ncpus=1,mem=2gb,walltime=172800'
+      cpuE = 'ncpus=1,mem=5gb,walltime=172800'
+      cpuF = 'ncpus=2,mem=%s,walltime=172800' % args.m
+      cpuB = 'ncpus=16,mem=10gb,walltime=172800'      
+   else:
+      cpuV = 'nodes=1:ppn=%i,mem=%s,walltime=172800' % (args.n, args.m)
+      cpuA = 'nodes=1:ppn=1,mem=512mb,walltime=172800'
+      cpuC = 'nodes=1:ppn=1,mem=2gb,walltime=172800'
+      cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
+      cpuF = 'nodes=1:ppn=2,mem=%s,walltime=172800' % args.m
+      cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
    
    # set filetypes
    set_filetypes(args)
@@ -455,26 +463,26 @@ def start_assembly(args, logger):
    
    # if trimming is needed
    if args.trim:
-      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.q, cpu=cpuF, host='cge-s2.cbs.dtu.dk')
+      illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.q, cpu=cpuF, partition=args.partition, host='cge-s2.cbs.dtu.dk')
       # if no interleaving is needed
       if len(interleave_calls) == 0:
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var, host='cge-s2.cbs.dtu.dk')
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
       # if interleaving is needed
       else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, host='cge-s2.cbs.dtu.dk')
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, host='cge-s2.cbs.dtu.dk')
+         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, partition=args.partition, host='cge-s2.cbs.dtu.dk')
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
    # if no trimming
    else:
       # if no interleaving is needed
       if len(interleave_calls) == 0:
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, env=env_var, host='cge-s2.cbs.dtu.dk')
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
       # if interleaving is needed
       else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, host='cge-s2.cbs.dtu.dk')
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, host='cge-s2.cbs.dtu.dk')
+         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, partition=args.partition, host='cge-s2.cbs.dtu.dk')
+         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
    
    # submit job for postprocessing
-   postprocess_moab = Moab(postprocess_calls, logfile=logger, runname='run_mlst_postprocess', queue=args.q, cpu=cpuA, depend=True, depend_type='conc', depend_val=[len(velvet_calls)], depend_ids=velvet_moab.ids, host='cge-s2.cbs.dtu.dk')
+   postprocess_moab = Moab(postprocess_calls, logfile=logger, runname='run_mlst_postprocess', queue=args.q, cpu=cpuA, depend=True, depend_type='conc', depend_val=[len(velvet_calls)], depend_ids=velvet_moab.ids, partition=args.partition, host='cge-s2.cbs.dtu.dk')
    
    # release jobs
    print "Releasing jobs"
@@ -508,13 +516,14 @@ if __name__ == '__main__':
    parser.add_argument('--outpath', help='assembly output dir [assembly]', default='assembly')
    parser.add_argument('--trim', help='should input files be trimmed (illumina only) [False]', default=False, action='store_true')
    parser.add_argument('--min_contig_lgth', help='mininum length to report contig [100]', default=100, type=int)
-   parser.add_argument('--cov_cut', help='coverage cutoff for removal of low coverage (float) [None]', default=None, type=float)
+   parser.add_argument('--cov_cutoff', help='coverage cutoff for removal of low coverage (float) [None]', default=None, type=float)
    parser.add_argument('--exp_cov', help='Expected mean coverage (None, float, auto) [auto]', default='auto')
    parser.add_argument('--ins_length', help='insert size (reads included) [None]', default=None, type=int)
    parser.add_argument('--add_velveth', help='additional parameters to velveth', default=None)
    parser.add_argument('--add_velvetg', help='additional parameters to velvetg', default=None)
    parser.add_argument('--n', help='number of threads for parallel run [4]', default=4, type=int)
    parser.add_argument('--m', help='memory needed for assembly [2gb]', default='2gb')
+   parser.add_argument('--partition', help='partition to run on (cge-cluster, uv) [cge-cluster]', default='cge-cluster')
    parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
    parser.add_argument('--log', help='log level [info]', default='info')
    parser.add_argument('--sfile', help='semaphore file for waiting [None]', default=None)

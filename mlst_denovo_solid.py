@@ -38,10 +38,21 @@ def solid(args):
    
    # add extra commands
    if args.add_solid: arg = arg + ' ' + args.add_solid
+   cmds = [cmd+arg]
    
-   return [cmd+arg]
+   ## write semaphore
+   if args.sfile and args.sfile != 'None': cmds.append('echo "done" > %s' % args.sfile)   
    
+   # write in bash script
+   fh = open('solid_assembly.sh', 'w')
+   fh.write('#!/bin/sh\n\n')
+   for cmd in cmds:
+      fh.write(cmd+'\n')
+   fh.close()
    
+   # return command (NB. add env. variable to run)
+   return ['sh solid_assembly.sh']
+
 def start_assembly(args, logger):
    '''Start assembly of solid reads'''
    
@@ -53,31 +64,33 @@ def start_assembly(args, logger):
    # set queueing
    paths = mlst_modules.setSystem()
    home = os.getcwd()
-   cpuV = 'nodes=1:ppn=%i,mem=%s,walltime=172800' % (args.n, args.m)
-   cpuA = 'nodes=1:ppn=1,mem=512mb,walltime=172800'
-   cpuC = 'nodes=1:ppn=1,mem=2gb,walltime=172800'
-   cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
-   cpuF = 'nodes=1:ppn=2,mem=2gb,walltime=172800'
-   cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
+   if args.partition == 'uv':
+      cpuV = 'ncpus=%i,mem=%s,walltime=172800' % (args.n, args.m)
+      cpuA = 'ncpus=1,mem=512mb,walltime=172800'
+      cpuC = 'ncpus=1,mem=2gb,walltime=172800'
+      cpuE = 'ncpus=1,mem=5gb,walltime=172800'
+      cpuF = 'ncpus=2,mem=2gb,walltime=172800'
+      cpuB = 'ncpus=16,mem=10gb,walltime=172800'      
+   else:
+      cpuV = 'nodes=1:ppn=%i,mem=%s,walltime=172800' % (args.n, args.m)
+      cpuA = 'nodes=1:ppn=1,mem=512mb,walltime=172800'
+      cpuC = 'nodes=1:ppn=1,mem=2gb,walltime=172800'
+      cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
+      cpuF = 'nodes=1:ppn=2,mem=2gb,walltime=172800'
+      cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
    
    solid_calls = solid(args)
    
-   # set environment variable (add newbler binaries to bin):
+   # set environment variable (add solid binaries to bin):
    env_var = 'denovo2=%s' % paths['solid_home']
    
    # submit and release jobs
    print "Submitting jobs"
-   solid_moab = Moab(solid_calls, logfile=logger, runname='run_mlst_solid', queue=args.q, cpu=cpuV, env=env_var)
+   solid_moab = Moab(solid_calls, logfile=logger, runname='run_mlst_solid', queue=args.q, cpu=cpuV, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
    
    # release jobs
-   solid_moab.release()
-   
-   # semaphore
-   print "Waiting for jobs to finish ..."
-   s = Semaphore(solid_moab.ids, home, 'solid', args.q, 20, 2*86400)
-   s.wait()
-   print "--------------------------------------"
-   
+   solid_moab.release(host='cge-s2.cbs.dtu.dk')
+      
 
 if __name__ == '__main__':
    
@@ -102,14 +115,16 @@ if __name__ == '__main__':
    parser.add_argument('--sample', help='name of run and output directory [solid_assembly]', default='solid_assembly')
    parser.add_argument('--n', help='number of cpus for parallel run [4]', default=4, type=int)
    parser.add_argument('--m', help='memory needed for assembly [2gb]', default='2gb')
-   parser.add_argument('--queue', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
+   parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
+   parser.add_argument('--partition', help='partition to run on (cge-cluster, uv) [cge-cluster]', default='cge-cluster')
    parser.add_argument('--log', help='log level [info]', default='info')
+   parser.add_argument('--sfile', help='semaphore file for waiting [None]', default=None)
    
    args = parser.parse_args()
-   #args = parser.parse_args('--se  --sample solid_test'.split())
+   #args = parser.parse_args('--mp f3.csfasta f3.qual r3.csfasta r3.qual --rf 5000000 --ins_length 1300 --ins_length_sd 300 --m 7gb --sample solid_test --add_solid \"-NO_CORRECTION -NO_ANALYSIS\"'.split())
    
    # change to sample dir if set
-   if args.sample:
+   if args.sample and args.sample != 'None':
       if not os.path.exists(args.sample):
          os.makedirs(args.sample)
       os.chmod(args.sample, 0777)

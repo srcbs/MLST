@@ -60,6 +60,9 @@ def newbler_stats(args):
    else:
       cmds.append('%sR-2.12 --vanilla 454AllContigs.lengths 454LargeContigs.lengths NA assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
    
+   ## write semaphore
+   if args.sfile and args.sfile != 'None': cmds.append('echo "done" > %s' % args.sfile)   
+   
    # write in bash script
    fh = open('newbler_stats.sh', 'w')
    fh.write('#!/bin/sh\n\n')
@@ -69,7 +72,7 @@ def newbler_stats(args):
    
    # return command (NB. add env. variable to run)
    return ['sh newbler_stats.sh']
-   
+
 def start_assembly(args, logger):
    '''start newbler assembly'''
    
@@ -81,12 +84,20 @@ def start_assembly(args, logger):
    # set queueing
    paths = mlst_modules.setSystem()
    home = os.getcwd()
-   cpuV = 'nodes=1:ppn=%i,mem=%s,walltime=172800' % (args.n, args.m)
-   cpuA = 'nodes=1:ppn=1,mem=512mb,walltime=172800'
-   cpuC = 'nodes=1:ppn=1,mem=2gb,walltime=172800'
-   cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
-   cpuF = 'nodes=1:ppn=2,mem=2gb,walltime=172800'
-   cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
+   if args.partition == 'uv':
+      cpuV = 'ncpus=%i,mem=%s,walltime=172800' % (args.n, args.m)
+      cpuA = 'ncpus=1,mem=512mb,walltime=172800'
+      cpuC = 'ncpus=1,mem=2gb,walltime=172800'
+      cpuE = 'ncpus=1,mem=5gb,walltime=172800'
+      cpuF = 'ncpus=2,mem=2gb,walltime=172800'
+      cpuB = 'ncpus=16,mem=10gb,walltime=172800'      
+   else:
+      cpuV = 'nodes=1:ppn=%i,mem=%s,walltime=172800' % (args.n, args.m)
+      cpuA = 'nodes=1:ppn=1,mem=512mb,walltime=172800'
+      cpuC = 'nodes=1:ppn=1,mem=2gb,walltime=172800'
+      cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
+      cpuF = 'nodes=1:ppn=2,mem=2gb,walltime=172800'
+      cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
    
    newbler_calls = newbler(args)
    newblerstats_calls = newbler_stats(args)
@@ -96,20 +107,13 @@ def start_assembly(args, logger):
    
    # submit and release jobs
    print "Submitting jobs"
-   newbler_moab = Moab(newbler_calls, logfile=logger, runname='run_mlst_newbler', queue=args.q, cpu=cpuV, env=env_var)
-   newblerstats_moab = Moab(newblerstats_calls, logfile=logger, runname='run_mlst_newblerstats', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=newbler_moab.ids)
+   newbler_moab = Moab(newbler_calls, logfile=logger, runname='run_mlst_newbler', queue=args.q, cpu=cpuV, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
+   newblerstats_moab = Moab(newblerstats_calls, logfile=logger, runname='run_mlst_newblerstats', queue=args.q, cpu=cpuA, depend=True, depend_type='one2one', depend_val=[1], depend_ids=newbler_moab.ids, partition=args.partition, host='cge-s2.cbs.dtu.dk')
    
    # release jobs
-   newbler_moab.release()
-   newblerstats_moab.release()
-   
-   # semaphore
-   print "Waiting for jobs to finish ..."
-   s = Semaphore(newblerstats_moab.ids, home, 'newbler', args.q, 20, 2*86400)
-   s.wait()
-   print "--------------------------------------"
-   
-   
+   newbler_moab.release('cge-s2.cbs.dtu.dk')
+   newblerstats_moab.release('cge-s2.cbs.dtu.dk')
+      
 
 if __name__ == '__main__':
    
@@ -129,14 +133,16 @@ if __name__ == '__main__':
    parser.add_argument('--outpath', help='assembly output dir [denovo]', default='denovo')
    parser.add_argument('--n', help='number of cpus for parallel run [4]', default=4, type=int)
    parser.add_argument('--m', help='memory needed for assembly [2gb]', default='2gb')
-   parser.add_argument('--queue', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
+   parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
+   parser.add_argument('--partition', help='partition to run on (cge-cluster, uv) [cge-cluster]', default='cge-cluster')
    parser.add_argument('--log', help='log level [info]', default='info')
+   parser.add_argument('--sfile', help='semaphore file for waiting [None]', default=None)
    
    args = parser.parse_args()
-   #args = parser.parse_args('--se 454Reads.fna --pe E_coli_PE.sff --sample Ecoli'.split())
+   #args = parser.parse_args(' --q cge --log info --m 7gb --n 4 --sample None --outpath denovo --se /panvol1/simon/projects/cge/test/GOS1.sff --sfile semaphores/denovoIICMLDK1EI'.split())
    
    # change to sample dir if set
-   if args.sample:
+   if args.sample and args.sample != 'None':
       if not os.path.exists(args.sample):
          os.makedirs(args.sample)
       os.chmod(args.sample, 0777)

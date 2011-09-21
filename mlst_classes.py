@@ -10,7 +10,7 @@ class Moab:
       Jobs are submitted as hold by default and should be released using Moab.release().
    '''
    
-   def __init__(self, calls, logfile=None, runname='run_test', queue='cbs', cpu='nodes=1:ppn=1,mem=2gb,walltime=43200', depend=False, depend_type='one2one', depend_val=[], hold=True, depend_ids=[], env=None, host=None):
+   def __init__(self, calls, logfile=None, runname='run_test', queue='cbs', cpu='nodes=1:ppn=1,mem=2gb,walltime=43200', depend=False, depend_type='one2one', depend_val=[], hold=True, depend_ids=[], partition='cge-cluster', env=None, host=None):
       '''Constructor for Moab class'''
       self.calls = calls
       self.runname = runname
@@ -23,6 +23,7 @@ class Moab:
       self.hold = hold
       self.depend_ids = depend_ids
       self.env = env
+      self.partition = partition
       self.host = host
       
       # put jobs in queue upon construction
@@ -30,7 +31,7 @@ class Moab:
    
    def __repr__(self):
       '''Return string of attributes'''
-      msg = 'Moab(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)' % ("["+", ".join(self.calls)+"]", self.logfile, self.runname, self.queue,  self.cpu, str(self.depend), self.depend_type, "["+", ".join(map(str,self.depend_val))+"]", str(self.hold), "["+", ".join(self.depend_ids)+"]", self.env, self.host)
+      msg = 'Moab(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)' % ("["+", ".join(self.calls)+"]", self.logfile, self.runname, self.queue,  self.cpu, str(self.depend), self.depend_type, "["+", ".join(map(str,self.depend_val))+"]", str(self.hold), "["+", ".join(self.depend_ids)+"]", self.env, self.partition, self.host)
       return msg
    
    def get_logger(self):
@@ -136,8 +137,10 @@ class Moab:
       import subprocess
       import time
       import os
+      import mlst_modules
       
       home = os.getcwd()
+      paths = mlst_modules.setSystem()
       
       ids = []
       for i in range(len(self.calls)):
@@ -153,16 +156,16 @@ class Moab:
             stdout = '%s/%s' % (home, match.group(2))
          
          # create xmsub commands
-         cmd = '/panvol1/simon/bin/mlst/xmsub'
+         cmd = paths['mlst_home'] + 'xmsub'
          
          # toggle if job should be on hold or env variable should be added
          if self.hold: cmd = '%s -h ' % cmd
          if self.env: cmd = cmd + ' -v %s' % self.env
          
          if not self.depend:
-            xmsub = cmd+' -d %s -l %s -O %s -E %s -r y -q %s -N %s -t %s' % (home, self.cpu, stdout, stderr, self.queue, self.runname, call)
+            xmsub = cmd+' -d %s -l %s,partition=%s -O %s -E %s -r y -q %s -N %s -t %s' % (home, self.cpu, self.partition, stdout, stderr, self.queue, self.runname, call)
          else:
-            xmsub = cmd+' -d %s -l %s,depend=%s -O %s -E %s -r y -q %s -N %s -t %s' % (home, self.cpu, depends[i], stdout, stderr, self.queue, self.runname, call)
+            xmsub = cmd+' -d %s -l %s,depend=%s,partition=%s -O %s -E %s -r y -q %s -N %s -t %s' % (home, self.cpu, depends[i], self.partition, stdout, stderr, self.queue, self.runname, call)
          
          time.sleep(1)
          if logger: logger.info(xmsub)
@@ -222,9 +225,9 @@ class Moab:
          if self.env: cmd = cmd + ' -v %s' % self.env
          
          if not self.depend:
-            msub = '%s -d %s -l %s -o %s -e %s -q %s -r y -N %s %s' % (cmd, home, self.cpu, stdout, stderr, self.queue, self.runname, filename)
+            msub = '%s -d %s -l %s,partition=%s -o %s -e %s -q %s -r y -N %s %s' % (cmd, home, self.cpu, self.partition, stdout, stderr, self.queue, self.runname, filename)
          else:
-            msub = '%s -d %s -l %s,depend=%s -o %s -e %s -q %s -r y -N %s %s' % (cmd, home, self.cpu, depends[i], stdout, stderr, self.queue, self.runname, filename)
+            msub = '%s -d %s -l %s,depend=%s,partition=%s -o %s -e %s -q %s -r y -N %s %s' % (cmd, home, self.cpu, depends[i], self.partition, stdout, stderr, self.queue, self.runname, filename)
          
          time.sleep(1)
          if logger: logger.info(msub)
@@ -314,7 +317,7 @@ class Moab:
 class Semaphore:
    '''Wait for files to be created, times are in seconds'''
    
-   def __init__(self, semaphore_ids, home, file_prefix, queue, check_interval, max_time, host=None):
+   def __init__(self, semaphore_ids, home, file_prefix, queue, check_interval, max_time, partition, host=None):
       '''Constructor for Semaphore class'''
       self.semaphore_ids = semaphore_ids
       self.home = home
@@ -366,7 +369,7 @@ class Semaphore:
       
       # create job 
       depends = ':'.join(self.semaphore_ids)
-      xmsub = '%sxmsub -d %s -l ncpus=1,mem=10mb,walltime=180,depend=%s -O %s -q %s -N semaphores -E %s -r y -t echo done' % (paths['mlst_home'], self.home, depends, semaphore_file, self.queue, semaphore_file_err)
+      xmsub = '%sxmsub -d %s -l ncpus=1,mem=10mb,walltime=180,depend=%s,partition=%s -O %s -q %s -N semaphores -E %s -r y -t echo done' % (paths['mlst_home'], self.home, depends, partition, semaphore_file, self.queue, semaphore_file_err)
       
       # submit job
       if self.host:
