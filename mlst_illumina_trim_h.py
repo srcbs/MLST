@@ -42,7 +42,7 @@ class FastqTrim:
       self.format = mlst_modules.set_filetype(self.f[0])
       if self.format == 'fastq':
          self.fqtype = mlst_modules.set_fqtype(self.f[0])
-   
+         sys.stderr.write('Header/Quality encoding: %s/%s\n' % (self.fqtype[0], self.fqtype[1]))
    
    def __repr__(self):
       msg = 'FastqTrim(%s, %s, %i, %i, %i, %s, %i, %s, %s)' % ("["+", ".join(self.f)+"]", "["+", ".join(self.o)+"]", self.l, self.q, self.m, self.keep_n, self.M, self.paired, self.interleaved)
@@ -57,22 +57,40 @@ class FastqTrim:
          fh = open(self.f[0], 'r')
          count = 0
          ends = []
-         for (title, sequence, quality) in FastqGeneralIterator(fh):
-            ends.append(title[-2:])
-            count += 1
-            if count > 9: break
-         
-         # check that they are interleaved (eg. /1, /2, /1, /2)
-         interleaved = True
-         for i,e in enumerate(ends[::2]):
-            if e != '/1':
-               interleaved = False
-               break
-         
-         for i,e in enumerate(ends[1::2]):
-            if e != '/2':
-               interleaved = False
-               break
+         if self.fqtype[0] == 'Illumina1.4':
+            for (title, sequence, quality) in FastqGeneralIterator(fh):
+               ends.append(title[-2:])
+               count += 1
+               if count > 9: break
+            
+            # check that they are interleaved (eg. /1, /2, /1, /2)
+            interleaved = True
+            for i,e in enumerate(ends[::2]):
+               if e != '/1':
+                  interleaved = False
+                  break
+            
+            for i,e in enumerate(ends[1::2]):
+               if e != '/2':
+                  interleaved = False
+                  break
+         elif self.fqtype[0] == 'Illumina1.8':
+            for (title, sequence, quality) in FastqGeneralIterator(fh):
+               ends.append(title)
+               count += 1
+               if count > 9: break
+            
+            interleaved = True
+            for i,e in enumerate(ends[::2]):
+               fields = e.split(' ')
+               if fields[1].startswith('2'):
+                  interleaved = False
+                  break
+            for i,e in enumerate(ends[1::2]):
+               fields = e.split(' ')
+               if fields[1].startswith('1'):
+                  interleaved = False
+                  break
          
          if interleaved:
             self.paired = True
@@ -167,9 +185,9 @@ class FastqTrim:
       if title == None:
          return (None, None, None)
       
-      if self.fqtype == 'Illumina':
+      if self.fqtype[1] == 'Illumina':
          qual = illumina2qual(quality)
-      elif self.fqtype == 'Sanger':
+      elif self.fqtype[1] == 'Sanger':
          qual = sanger2qual(quality)
       else:
          raise ValueError('Fastq must be Illumina or Sanger')
@@ -220,11 +238,19 @@ class FastqTrim:
          out = open(o, 'w')
          written_count = 0
          total_count = 0
-         for (title, sequence, quality) in FastqGeneralIterator(fh):
-            total_count += 1
-            if db_common.has_key(title[:-2]):
-               out.write('@%s\n%s\n+\n%s\n' % (title, sequence, quality))
-               written_count += 1
+         if self.fqtype[0] == 'Illumina1.4':
+            for (title, sequence, quality) in FastqGeneralIterator(fh):
+               total_count += 1
+               if db_common.has_key(title[:-2]):
+                  out.write('@%s\n%s\n+\n%s\n' % (title, sequence, quality))
+                  written_count += 1
+         elif self.fqtype[0] == 'Illumina1.8':
+            for (title, sequence, quality) in FastqGeneralIterator(fh):
+               total_count += 1
+               if db_common.has_key(title.split(' ')[0]):
+                  out.write('@%s\n%s\n+\n%s\n' % (title, sequence, quality))
+                  written_count += 1
+         
          sys.stderr.write('%s: Total %i, Written %i (%.1f%%)\n' % (f, total_count, written_count, written_count/total_count*100))
          fh.close()
          out.close()
@@ -233,7 +259,12 @@ class FastqTrim:
          '''Write out db of headers'''
          
          fh = open(f, 'r')
-         fh_headers = (x.strip()[1:-2] for i, x in enumerate(fh) if not (i % 4))
+         if self.fqtype[0] == 'Illumina1.4':
+            fh_headers = (x.strip()[1:-2] for i, x in enumerate(fh) if not (i % 4))
+         elif self.fqtype[0] == 'Illumina1.8':
+            fh_headers = (x.split(' ')[0][1:] for i, x in enumerate(fh) if not (i % 4))
+         else:
+            sys.stderr.write('Header encoding not determined: %s\n' % self.fqtype[0])
          
          db = cdb.cdbmake(db_fname, db_fname + '.tmp')
          for h in fh_headers:

@@ -176,9 +176,10 @@ args = parser.parse_args()
 #args = parser.parse_args('velvet --shortPaired test_kleb_1.fq test_kleb_2.fq --ksizes 41 55 4 --sample test_kleb --cov_cutoff 8'.split())
 #args = parser.parse_args('newbler --se life_unimuenster_sff/*.sff --sample test_newbler --wait'.split())
 #args = parser.parse_args('solid --mp ecoli_600x_F3.csfasta ecoli_600x_F3.qual ecoli_600x_R3.csfasta ecoli_600x_R3.qual --rf 5000000 --ins_length 1300 --ins_length_sd 300 --m 7gb --sample solid_test --wait'.split())
+#args = parser.parse_args('velvet --shortPaired test_kleb_1.fq test_kleb_2.fq --ksizes 41 55 4'.split())
 
 # set pythonpath
-os.environ['PYTHONPATH'] = '/panvol1/simon/lib/python/:/panvol1/simon/bin/mlst/'
+os.environ['PYTHONPATH'] = '/panvol1/simon/lib/python/:/home/panfs/cbs/projects/cge/servers/MLST/assembly/'
 paths = mlst_modules.setSystem()
 
 # If working dir is given, create and move to working directory else run where program is invoked

@@ -55,7 +55,7 @@ for (a in seq(3,length(Args),2)) {
 
 # checking whether any assembly finished #
 if (all(is.na(df))) {
-   stop("Not assemblies finished")
+   stop("No assemblies finished")
 }
 
 df[,"1/Nodes"] = 1/df[,"Nodes"]

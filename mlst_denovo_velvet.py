@@ -94,6 +94,8 @@ def set_kmersizes(args, no_reads=10000, step=4):
                count = count + 1
             else:
                return average(L)
+         # if not returned yet (less than no_reads in the file return now)
+         return average(L)
       elif get_filetype(f) == 'fasta':
          for rec in SeqIO.parse(fh, 'fasta'):
             if count < no_reads:
@@ -101,6 +103,8 @@ def set_kmersizes(args, no_reads=10000, step=4):
                count = count + 1
             else:
                return average(L)
+         # if not returned yet (less than no_reads in the file return now)
+         return average(L)
       else:
          raise ValueError('Input must be fasta or fastq')
    
@@ -409,12 +413,12 @@ def start_assembly(args, logger):
    paths = mlst_modules.setSystem()
    home = os.getcwd()
    if args.partition == 'uv':
-      cpuV = 'ncpus=%i,mem=%s,walltime=172800' % (args.n, args.m)
-      cpuA = 'ncpus=1,mem=512mb,walltime=172800'
-      cpuC = 'ncpus=1,mem=2gb,walltime=172800'
-      cpuE = 'ncpus=1,mem=5gb,walltime=172800'
-      cpuF = 'ncpus=2,mem=%s,walltime=172800' % args.m
-      cpuB = 'ncpus=16,mem=10gb,walltime=172800'      
+      cpuV = 'procs=%i,mem=%s,walltime=172800,flags=sharedmem' % (args.n, args.m)
+      cpuA = 'procs=1,mem=512mb,walltime=172800,flags=sharedmem'
+      cpuC = 'procs=1,mem=2gb,walltime=172800,flags=sharedmem'
+      cpuE = 'procs=1,mem=5gb,walltime=172800,flags=sharedmem'
+      cpuF = 'procs=2,mem=%s,walltime=172800,flags=sharedmem' % args.m
+      cpuB = 'procs=16,mem=10gb,walltime=172800,flags=sharedmem'      
    else:
       cpuV = 'nodes=1:ppn=%i,mem=%s,walltime=172800' % (args.n, args.m)
       cpuA = 'nodes=1:ppn=1,mem=512mb,walltime=172800'
@@ -534,7 +538,8 @@ if __name__ == '__main__':
    #args = parser.parse_args('--shortPaired fastq /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_1_sequence.txt /panfs1/cge/data/cge_private/s.aureus/lane7_sample28_TG8130/s_7_2_sequence.txt --ksizes 21 45 4 --sample TG8130'.split())
    #args = parser.parse_args('--shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 33 75 4 --sample kleb_wtrim --trim'.split())
    #args = parser.parse_args('--short /panvol1/simon/projects/cge/EHEC/illumina/bgi/110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --outpath assembly'.split())
-   #args = parser.parse_args('--sample None --outpath assembly --min_contig_lgth 100 --exp_cov auto --log info --shortPaired /panvol1/simon/projects/cge/test/test_kleb_1.fq /panvol1/simon/projects/cge/test/test_kleb_2.fq --sfile semaphores/denovo --ksizes 41 55 4 --m 7gb --n 4 --q cge'.split())
+   #args = parser.parse_args('--sample None --outpath assembly --min_contig_lgth 100 --exp_cov auto --log info --sfile None --short /net/cxfs1-10g/home/projects3/squid/rapsearch/reads/DFPA.reads.fq --ksizes auto --partition cge-cluster --m 1gb --n 1 --q cge'.split())
+   
    
    # add_velveth and add_velvetg works from commandline, eg:
    # mlst_denovo_velvet.py --short fastq.gz interleaved.fastq.gz --ksizes 33 --sample Kleb --add_velvetg "-very_clean yes"

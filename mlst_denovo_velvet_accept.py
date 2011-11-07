@@ -2,7 +2,7 @@
 
 import argparse
 
-def parse_accept(outpath):
+def parse_accept(outpath, keep):
    '''Take best assembly and remove worst. Parses velvet_parse.txt'''
    
    import re
@@ -28,10 +28,11 @@ def parse_accept(outpath):
    calls.append(cmd+arg)
    
    # remove other assemblies
-   cmd = 'rm'
-   for k in rm_assemblies:
-      arg = ' -r %s_%s' % (outpath, k)
-      calls.append(cmd+arg)
+   if not keep:
+      cmd = 'rm'
+      for k in rm_assemblies:
+         arg = ' -r %s_%s' % (outpath, k)
+         calls.append(cmd+arg)
    
    # run processes
    for call in calls:
@@ -42,8 +43,9 @@ if __name__ == '__main__':
    parser = argparse.ArgumentParser(prog='mlst_denovo_accept.py', description='''Keep best assembly and remove others''')
    
    parser.add_argument('outpath', help='outpath given to assemblies')
+   parser.add_argument('--keep', help='do not remove old assemblies', default=False, action='store_true')
    
    args = parser.parse_args()
    
    # start 
-   parse_accept(args.outpath)
+   parse_accept(args.outpath, args.keep)

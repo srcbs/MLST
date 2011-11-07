@@ -72,22 +72,38 @@ def set_fqtype(f):
    # Open fastq, convert ASCII to number, check if number is above or below certain thresholds to determine format
    
    from Bio.SeqIO.QualityIO import FastqGeneralIterator
+   import re
    
-   type = 'not determined'
+   # type is (header encoding, quality encoding)
+   type = ['nd', 'nd']
    inhandle = open(f, 'r')
+   
+   re_illumina = re.compile('^\w+-\w+:\w+:\w+:\w+:\w+#.+\/\d')
+   re_illumina_v18 = re.compile('^\w+-\w+:\w+:\w+:\d+:\d+:\d+:\d+\s\d:\w:\d+:\w+')
+      
    for (title, sequence, quality) in FastqGeneralIterator(inhandle):
+      # detect header encoding
+      hd = re_illumina.match(title)
+      if hd:
+         type[0] = 'Illumina1.4'
+      else:
+         hd = re_illumina_v18.match(title)
+         if hd:
+            type[0] = 'Illumina1.8'
+      
+      # detect quality encoding
       qs = map(ord, quality)
       for q in qs:
-         if q > 73:
-            type = 'Illumina'
+         if q > 74:
+            type[1] = 'Illumina'
             break
          elif q < 59:
-            type = 'Sanger'
+            type[1] = 'Sanger'
             break
-      if type != 'not determined':
+      if type[1] != 'nd':
          break
    
-   if type == 'not determined':
+   if type[1] == 'nd':
       raise ValueError('Fastq format not identified, are you sure it is sanger/illumina?')
    else:
       return type
