@@ -1,4 +1,4 @@
-#!/panvol1/simon/bin/python2.7
+#!/usr/bin/env python2.7
 
 import argparse
 
@@ -19,12 +19,45 @@ def set_abspath():
             setattr(args, self.dest, filenames)
    return SetAbspath
 
+
 def newbler(args):
    '''Creating newbler calls'''
+
+   def convert_fastq(args, paths):
+      '''If input is fastq convert to fasta+qual'''
+      
+      cmds = []
+      se = []
+      pe = []
+      # identify file inputs
+      if args.se:
+         se_ftypes = map(mlst_modules.set_filetype, args.se)
+         for i,f in enumerate(args.se):
+            if se_ftypes[i] == 'fastq':
+               cmds.append('%sconvertFastq2FastaQual.py --i %s --o %s' % (paths['mlst_home'], f, os.path.split(f)[1]))
+               se.append(os.path.split(f)[1]+'.fasta')
+            else:
+               se.append(f)
+      
+      if args.pe:   
+         pe_ftypes = map(mlst_modules.set_filetype, args.pe)
+         for i,f in enumerate(args.pe):
+            if pe_ftypes[i] == 'fastq':
+               cmds.append('%sconvertFastq2FastaQual.py --i %s --o %s' % (paths['mlst_home'], f, os.path.split(f)[1]))
+               pe.append(os.path.split(f)[1]+'.fasta')
+            else:
+               pe.append(f)
+      
+      return cmds, se, pe
    
    import mlst_modules
    paths = mlst_modules.setSystem()
    cmds = []
+   cf = convert_fastq(args, paths)
+   cmds.extend(cf[0])
+   args.se = cf[1]
+   args.pe = cf[2]
+   
    cmds.append('newAssembly %s' % args.outpath)
    if args.se:
       for f in args.se:
@@ -56,9 +89,9 @@ def newbler_stats(args):
    cmds.append('''perl -ne 'if ($_ =~ m/^>.+length=(\d+)/) { print $1, "\\n"}' %s > 454LargeContigs.lengths ''' % (assembly_path + '454LargeContigs.fna'))
    if args.pe:
       cmds.append('''perl -ne 'if ($_ =~ m/^>.+length=(\d+)/) { print $1, "\\n"}' %s > 454Scaffolds.lengths ''' % (assembly_path + '454Scaffolds.fna'))
-      cmds.append('%sR-2.12 --vanilla 454AllContigs.lengths 454LargeContigs.lengths 454Scaffolds.lengths assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
+      cmds.append('%sR --vanilla 454AllContigs.lengths 454LargeContigs.lengths 454Scaffolds.lengths assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
    else:
-      cmds.append('%sR-2.12 --vanilla 454AllContigs.lengths 454LargeContigs.lengths NA assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
+      cmds.append('%sR --vanilla 454AllContigs.lengths 454LargeContigs.lengths NA assembly.stats.txt < %smlst_denovo_newbler_stats.R ' % (paths['R_home'], paths['mlst_home']))
    
    ## write semaphore
    if args.sfile and args.sfile != 'None': cmds.append('echo "done" > %s' % args.sfile)   

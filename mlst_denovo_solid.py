@@ -1,4 +1,4 @@
-#!/panvol1/simon/bin/python
+#!/tools/opt/python/python2.7.2/bin/python2.7
 
 import argparse
 

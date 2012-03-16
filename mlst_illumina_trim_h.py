@@ -1,14 +1,20 @@
-#!/panvol1/simon/bin/python2.7
+#!/tools/opt/python/python2.7.2/bin/python2.7
 
 from __future__ import division
+import os
+import sys
+
+os.environ['PYTHONPATH'] = '/lib/python:/home/people/simon/lib/misc:/panvol1/simon/lib/python:/panvol1/simon/bin/mlst/'
+sys.stderr.write('%s\n' % os.environ['PYTHONPATH'])
+
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 import argparse
 import mlst_modules
-import sys
 import random
 import string
 import cdb
 import multiprocessing
+
 
 class FastqTrim:
    '''Trim/Filter paired end fastq:
@@ -38,11 +44,11 @@ class FastqTrim:
       
       # set adaptors, readtype, fastq format
       self.adaptors = self.set_adaptors()
-      self.set_readtype()
       self.format = mlst_modules.set_filetype(self.f[0])
       if self.format == 'fastq':
          self.fqtype = mlst_modules.set_fqtype(self.f[0])
          sys.stderr.write('Header/Quality encoding: %s/%s\n' % (self.fqtype[0], self.fqtype[1]))
+      self.set_readtype()
    
    def __repr__(self):
       msg = 'FastqTrim(%s, %s, %i, %i, %i, %s, %i, %s, %s)' % ("["+", ".join(self.f)+"]", "["+", ".join(self.o)+"]", self.l, self.q, self.m, self.keep_n, self.M, self.paired, self.interleaved)
@@ -57,7 +63,7 @@ class FastqTrim:
          fh = open(self.f[0], 'r')
          count = 0
          ends = []
-         if self.fqtype[0] == 'Illumina1.4':
+         if self.fqtype[0] == 'Illumina1.4' or self.fqtype[0] == 'nd':
             for (title, sequence, quality) in FastqGeneralIterator(fh):
                ends.append(title[-2:])
                count += 1
@@ -414,6 +420,7 @@ if __name__ == '__main__':
    #args = parser.parse_args(''.split())
    #args = parser.parse_args('--i kleb_test_2.fq --l 25 --q 20 --o kleb_test_2.trim.fq'.split())
    #args = parser.parse_args('--i Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --M 15 --o Kleb-10-213361_2_1_sequence.trim.fq Kleb-10-213361_2_2_sequence.trim.fq '.split())
+   #args = parser.parse_args('--i /home/panfs/cbs/projects/cge/data/cge_private/unsorted_data_hhas/BGI2012/Lane1/split/ec_PE3.clipped.fq --o trimmed/ec_PE3.clipped.fq.trim'.split())
    
    # create instance
    fqtrim = FastqTrim(args.i, args.o, args.min_length, args.min_baseq, args.min_avgq, args.keep_n, args.min_adaptor_match, args.adaptors)

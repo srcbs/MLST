@@ -1,4 +1,7 @@
-#!/panvol1/simon/bin/python2.7
+#!/tools/opt/python/python2.7.2/bin/python2.7
+
+# NB: Need to copy convertFastq2Fasta.py to /home/panfs/cbs/projects/cge/servers/MLST/assembly/
+# also mlst_home is defined as /panvol1/simon/bin/mlst/ so it is actually not running the scripts at the server dir
 
 import argparse
 import logging

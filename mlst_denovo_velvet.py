@@ -1,4 +1,4 @@
-#!/panvol1/simon/bin/python
+#!/tools/opt/python/python2.7.2/bin/python2.7
 
 import argparse
 
@@ -348,8 +348,7 @@ def create_velvet_calls(args):
       fh.close()
       sh_calls.append('sh velvet%i.sh' %i)
    return sh_calls
-
-
+   
 
 def postprocess(args):
    '''Determine best assembly, remove other assemblies, clean up and write semaphore file (if required)'''
@@ -360,7 +359,7 @@ def postprocess(args):
    calls = []
    if len(args.ksizes) > 1:
       ## parse_assemblies
-      cmd = '%sR-2.12 --vanilla ' % paths['R_home']
+      cmd = '%sR --vanilla ' % paths['R_home']
       
       # set argument
       if len(args.ksizes) == 1:
@@ -454,7 +453,7 @@ def start_assembly(args, logger):
    
    # velvet calls
    velvet_calls = create_velvet_calls(args)
-   
+      
    # velvet parse calls
    postprocess_calls = postprocess(args)
    

@@ -26,7 +26,7 @@ def setSystem():
       sys['bedtools_home'] = '/panvol1/simon/bin/BEDTools-2.8.3/'
       sys['velvet_home'] = '/panvol1/simon/bin/velvet_1.1.04/'
       sys['newbler'] = '/panvol1/simon/bin/454/bin/'
-      sys['R_home'] = '/tools/bin/'
+      sys['R_home'] = '/panvol1/simon/bin/mlst/'
       sys['mlst_home'] = '/panvol1/simon/bin/mlst/'
       sys['solid_home'] = '/panvol1/simon/bin/solid/'
    else:
@@ -78,7 +78,7 @@ def set_fqtype(f):
    type = ['nd', 'nd']
    inhandle = open(f, 'r')
    
-   re_illumina = re.compile('^\w+-\w+:\w+:\w+:\w+:\w+#.+\/\d')
+   re_illumina = re.compile('^\w+-?\w+:\w+:\w+:\w+:\w+#.+\/\d')
    re_illumina_v18 = re.compile('^\w+-\w+:\w+:\w+:\d+:\d+:\d+:\d+\s\d:\w:\d+:\w+')
       
    for (title, sequence, quality) in FastqGeneralIterator(inhandle):
@@ -94,7 +94,7 @@ def set_fqtype(f):
       # detect quality encoding
       qs = map(ord, quality)
       for q in qs:
-         if q > 74:
+         if q > 83:
             type[1] = 'Illumina'
             break
          elif q < 59:
@@ -107,4 +107,5 @@ def set_fqtype(f):
       raise ValueError('Fastq format not identified, are you sure it is sanger/illumina?')
    else:
       return type
+
 
