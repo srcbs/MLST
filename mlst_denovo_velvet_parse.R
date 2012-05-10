@@ -79,20 +79,20 @@ if (length(best) != 1) {
 }
 
 # plot
-#library(ggplot2)
+library(ggplot2)
 
 col = rep("Not Best", nrow(df))
 names(col) = df$Ksize
 col[best_assembly] = "Best"
 df$Status = col
 
-#df.melt = melt(df[,c(1,2,3,4,5)], id=c("Ksize"))
-#df.melt$Status = rep(col, 4)
+df.melt = melt(df[,c(1,2,3,4,5)], id=c("Ksize"))
+df.melt$Status = rep(col, 4)
 
-#p = ggplot(df.melt, aes(x=Ksize, y=value, colour=Status)) + facet_wrap(~variable, nrow=2, ncol=2, scales="free") + geom_point() 
-#pdf(file="velvet_parse.pdf", width=9, height=7)
-#print(p)
-#dev.off()
+p = ggplot(df.melt, aes(x=Ksize, y=value, colour=Status)) + facet_wrap(~variable, nrow=2, ncol=2, scales="free") + geom_point() 
+pdf(file="velvet_parse.pdf", width=9, height=7)
+print(p)
+dev.off()
 
 # write out
 output = c(paste(c("Best assembly is: ", best_assembly), sep="", collapse=""),

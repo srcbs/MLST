@@ -38,11 +38,11 @@ if (Args[5] == "NA") {
    # Lcontigs
    Lcontig.df = data.frame(No=as.factor(1:length(Lcontig)), rev(sort(Lcontig)))
    colnames(Lcontig.df)[2] = "Lcontig"
-   #p = ggplot(Lcontig.df, aes(No, Lcontig)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="Large Contig (>500nt) lengths") + labs(x='', y='Length (nt)')
-   #p = p + geom_hline(aes(yintercept=N50[2]))
-   #pdf(file="contigLarge.lengths.pdf", width=7, height=7)
-   #print(p)
-   #dev.off()
+   p = ggplot(Lcontig.df, aes(No, Lcontig)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="Large Contig (>500nt) lengths") + labs(x='', y='Length (nt)')
+   p = p + geom_hline(aes(yintercept=N50[2]))
+   pdf(file="contigLarge.lengths.pdf", width=7, height=7)
+   print(p)
+   dev.off()
 
 
 } else {
@@ -52,7 +52,7 @@ if (Args[5] == "NA") {
    scaffolds = read.table(file="454Scaffolds.lengths", header=FALSE, sep="\t", as.is=TRUE)[,1]
 
 
-   #library(ggplot2)
+   library(ggplot2)
    contig = read.table(file=Args[3], header=FALSE, sep="\t", as.is=TRUE)[,1]
    Lcontig = read.table(file=Args[4], header=FALSE, sep="\t", as.is=TRUE)[,1]
    scaffolds = read.table(file=Args[5], header=FALSE, sep="\t", as.is=TRUE)[,1]
@@ -81,31 +81,31 @@ if (Args[5] == "NA") {
    write.table(df.out, Args[6], col.names=TRUE, row.names=TRUE, quote=FALSE, sep="\t")
 
    # plotting
-   #contig.df = data.frame(No=as.factor(1:length(contig)), rev(sort(contig)))
-   #colnames(contig.df)[2] = "contig"
-   #p = ggplot(contig.df, aes(No, contig)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="All Contig (>100nt) lengths") + labs(x='', y='Length (nt)')
-   #p = p + geom_hline(aes(yintercept=N50[1]))
-   #pdf(file="contig.lengths.pdf", width=7, height=7)
-   #print(p)
-   #dev.off()
+   contig.df = data.frame(No=as.factor(1:length(contig)), rev(sort(contig)))
+   colnames(contig.df)[2] = "contig"
+   p = ggplot(contig.df, aes(No, contig)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="All Contig (>100nt) lengths") + labs(x='', y='Length (nt)')
+   p = p + geom_hline(aes(yintercept=N50[1]))
+   pdf(file="contig.lengths.pdf", width=7, height=7)
+   print(p)
+   dev.off()
 
    # Lcontigs
    Lcontig.df = data.frame(No=as.factor(1:length(Lcontig)), rev(sort(Lcontig)))
    colnames(Lcontig.df)[2] = "Lcontig"
-   #p = ggplot(Lcontig.df, aes(No, Lcontig)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="Large Contig (>500nt) lengths") + labs(x='', y='Length (nt)')
-   #p = p + geom_hline(aes(yintercept=N50[2]))
-   #pdf(file="contigLarge.lengths.pdf", width=7, height=7)
-   #print(p)
-   #dev.off()
+   p = ggplot(Lcontig.df, aes(No, Lcontig)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="Large Contig (>500nt) lengths") + labs(x='', y='Length (nt)')
+   p = p + geom_hline(aes(yintercept=N50[2]))
+   pdf(file="contigLarge.lengths.pdf", width=7, height=7)
+   print(p)
+   dev.off()
 
    # Scaffolds
    scaffolds.df = data.frame(No=as.factor(1:length(scaffolds)), rev(sort(scaffolds)))
    colnames(scaffolds.df)[2] = "scaffolds"
-   #p = ggplot(scaffolds.df, aes(No, scaffolds)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="Scaffolds (>500nt) lengths") + labs(x='', y='Length (nt)')
-   #p = p + geom_hline(aes(yintercept=N50[3]))
-   #pdf(file="scaffolds.lengths.pdf", width=7, height=7)
-   #print(p)
-   #dev.off()
+   p = ggplot(scaffolds.df, aes(No, scaffolds)) + geom_histogram(fill="lightblue") + opts(axis.text.x=NULL, title="Scaffolds (>500nt) lengths") + labs(x='', y='Length (nt)')
+   p = p + geom_hline(aes(yintercept=N50[3]))
+   pdf(file="scaffolds.lengths.pdf", width=7, height=7)
+   print(p)
+   dev.off()
 }
 
 

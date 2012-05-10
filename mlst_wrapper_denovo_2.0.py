@@ -128,7 +128,7 @@ parent_parser.add_argument('--sample', help='name of run and output directory [m
 parent_parser.add_argument('--n', help='number of threads for parallel run [4]', default=4, type=int)
 parent_parser.add_argument('--m', help='memory needed for assembly [7gb]', default='7gb')
 parent_parser.add_argument('--partition', help='partition to run on (cge-cluster, uv) [cge-cluster]', default='cge-cluster')
-parent_parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cge]', default='cge')
+parent_parser.add_argument('--q', help='queue to submit jobs to (idle, cbs, cpr, cge, urgent) [cbs]', default='cbs')
 parent_parser.add_argument('--log', help='log level [INFO]', default='info')
 parent_parser.add_argument('--wait', help='wait for assembly, ONLY www [False]', default=False, action='store_true')
 
