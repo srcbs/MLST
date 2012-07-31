@@ -1,6 +1,7 @@
 #!/tools/opt/python/python2.7.2/bin/python2.7
 
 import argparse
+import gzip
 
 def required_nargs(min,max):
    '''Enforces input to nargs to be between min and max long'''
@@ -12,48 +13,6 @@ def required_nargs(min,max):
             raise argparse.ArgumentTypeError(msg)
          setattr(args, self.dest, value)
    return RequiredInterval
-
-# set_filetypes, are only required (and called) by mlst_wrapper_denovo2.0.py
-def set_filetypes(args):
-   '''Detects filetype from fasta / fastq and update args'''
-   
-   def check_filetypes(files):
-      '''Do the actual detection, requires all to be the same
-         Returns input list with filetype appended in front'''
-   
-      def get_filetype(f):
-         '''Return filetype (fasta/fastq)'''
-         inhandle = open(f, "r")
-         line = inhandle.readline()
-         if line.startswith(">"):
-            out = 'fasta'
-         elif line.startswith("@"):
-            out = 'fastq'
-         else:
-            raise ValueError('Input must be fasta or fastq')
-         return out
-      
-      def all_same(items):
-         return all(x == items[0] for x in items)
-      
-      if files:
-         filetypes = []
-         for i in range(len(files)):
-            filetypes.append(get_filetype(files[i]))
-         if all_same(filetypes):
-            
-            return files.insert(0, filetypes[0])
-         else:
-            raise ValueError('Not all files are of same filetype: %s' % (' '.join(filetypes)))
-   
-   # main
-   if args.short: check_filetypes(args.short)
-   if args.short2: check_filetypes(args.short2)
-   if args.shortPaired: check_filetypes(args.shortPaired)
-   if args.shortPaired2: check_filetypes(args.shortPaired2)
-   if args.long: check_filetypes(args.long)
-   if args.longPaired: check_filetypes(args.longPaired)
-
 
 # should be run on trimmed data(!)
 def set_kmersizes(args, no_reads=10000, step=4):
@@ -73,7 +32,11 @@ def set_kmersizes(args, no_reads=10000, step=4):
       def get_filetype(f):
          '''Return filetype (fasta/fastq)'''
          
-         inhandle = open(f, "r")
+         if f.endswith('.gz'):
+            inhandle = gzip.open(f, 'rb')
+         else:
+            inhandle = open(f, "r")
+         
          line = inhandle.readline()
          if line.startswith(">"):
             out = 'fasta'
@@ -84,7 +47,11 @@ def set_kmersizes(args, no_reads=10000, step=4):
          return out
       
       # main
-      fh = open(f, 'r')
+      if f.endswith('.gz'):
+         fh = gzip.open(f, 'rb')
+      else:
+         fh = open(f, 'r')
+      
       count = 0
       L = []
       if get_filetype(f) == 'fastq':
@@ -158,7 +125,7 @@ def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep
    cmd = '%smlst_illumina_trim_h.py' % (paths['mlst_home'])
    calls = []
    if args.short:
-      if args.short[0] == 'fastq':
+      if args.short[0] == 'fastq' or args.short[0] == 'fastq.gz':
          outfiles_short = []   
          for i,f in enumerate(args.short):
             if i == 0: continue
@@ -171,7 +138,7 @@ def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep
          args.short[1:] = outfiles_short
    
    if args.short2:
-      if args.short2[0] == 'fastq':
+      if args.short2[0] == 'fastq' or args.short2[0] == 'fastq.gz':
          outfiles_short2 = []   
          for i,f in enumerate(args.short2):
             if i == 0: continue
@@ -183,7 +150,7 @@ def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep
             calls.append(cmd+arg)
          args.short2[1:] = outfiles_short2
    
-   if args.shortPaired and args.shortPaired[0] == 'fastq':
+   if args.shortPaired and args.shortPaired[0].find('fastq') > -1:
       outfiles_shortPaired = []
       if len(args.shortPaired) == 3:
          outfile_pe1 = 'trimmed/' + os.path.split(args.shortPaired[1])[1] + '.trim.fq'
@@ -204,7 +171,7 @@ def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep
       calls.append(cmd+arg)
       args.shortPaired[1:] = outfiles_shortPaired
    
-   if args.shortPaired2 and args.shortPaired2[0] == 'fastq':
+   if args.shortPaired2 and args.shortPaired[0].find('fastq') > -1:
       outfiles_shortPaired2 = []
       if len(args.shortPaired2) == 3:
          outfile_pe1 = 'trimmed/' + os.path.split(args.shortPaired2[1])[1] + '.trim.fq'
@@ -228,44 +195,6 @@ def illumina_trim(args, min_length, min_baseq, min_avgq, min_adaptor_match, keep
       if not os.path.exists('trimmed'):
          os.makedirs('trimmed')
    return calls
-
-
-def interleave(i, sample):
-   '''Identify paired end read files that should be interleaved'''
-   
-   import os
-   
-   def merge(reads, format, interleaved):
-      '''Perform merging'''
-      
-      import mlst_modules
-      import os
-      paths = mlst_modules.setSystem()
-      
-      # shuffle <file1> <file2> <out>
-      if format.find('fastq') > -1: cmd = '%sshuffleSequences_fastq.pl %s %s %s' % (paths['velvet_home'], reads[0], reads[1], interleaved)
-      if format.find('fasta') > -1: cmd = '%sshuffleSequences_fasta.pl %s %s %s' % (paths['velvet_home'], reads[0], reads[1], interleaved)
-      return cmd
-   
-   # check if format can be merged (fasta, fastq)
-   if i:
-      if i[0].find('fasta') > -1 or i[0].find('fastq') > -1:
-         # check if merging is needed
-         if len(i) > 2:
-            format = i[0]
-            reads = i[1:3]
-            home = os.getcwd()
-            interleaved =  os.path.split(reads[0])[1] + '.interleaved'
-            #interleaved = reads[0] + '.interleaved'
-            # set new format
-            call = merge(reads, format, interleaved)
-            return (call, [format, interleaved])
-         else:
-            return (None, i)
-      else:
-         return (None, i)
-   else:
-      return (None, i)
         
 
 def create_velvet_calls(args):
@@ -279,31 +208,56 @@ def create_velvet_calls(args):
    cmd = '%svelveth' % paths['velvet_home']
    velveth_calls = []
    if len(args.ksizes) == 1:
-      arg = ' %s %s ' % (args.outpath, args.ksizes[0])
+      arg = ' %s %s -create_binary ' % (args.outpath, args.ksizes[0])
       if args.short: arg = arg + ' -short -%s %s' % (args.short[0], ' '.join(args.short[1:]))
       if args.short2: arg = arg + ' -short2 -%s %s' % (args.short2[0], ' '.join(args.short2[1:]))
-      if args.shortPaired: arg = arg + ' -shortPaired -%s %s' % (args.shortPaired[0], args.shortPaired[1])
-      if args.shortPaired2: arg = arg + ' -shortPaired2 -%s %s' % (args.shortPaired2[0], args.shortPaired2[1])
+      if args.shortPaired:
+         if len(args.shortPaired) == 2:
+            arg = arg + ' -shortPaired -%s %s' % (args.shortPaired[0], args.shortPaired[1])
+         elif len(args.shortPaired) == 3:
+            arg = arg + ' -shortPaired -separate -%s %s %s' % (args.shortPaired[0], args.shortPaired[1], args.shortPaired[2])
+      if args.shortPaired2:
+         if len(args.shortPaired2) == 2:
+            arg = arg + ' -shortPaired2 -%s %s' % (args.shortPaired2[0], args.shortPaired2[1])
+         elif len(args.shortPaired) == 3:
+            arg = arg + ' -shortPaired2 -separate -%s %s %s' % (args.shortPaired2[0], args.shortPaired2[1], args.shortPaired2[2])
       if args.long: arg = arg + ' -long -%s %s' % (args.long[0], ' '.join(args.long[1:]))
-      if args.longPaired: arg = arg + ' -longPaired -%s %s' % (args.longPaired[0], args.longPaired[1])
+      if args.longPaired:
+         if len(args.longPaired) == 2:
+            arg = arg + ' -longPaired -%s %s' % (args.longPaired[0], args.longPaired[1])
+         elif len(args.longPaired) == 3:
+            arg = arg + ' -longPaired -separate -%s %s %s' % (args.longPaired[0], args.longPaired[1], args.longPaired[2])
       if args.add_velveth: arg = arg + ' %s' % args.add_velveth
       call = cmd + arg
       velveth_calls.append(call)
+   
    elif len(args.ksizes) >= 2 and len(args.ksizes) <= 3:
       if len(args.ksizes) == 2:
          step = 2
       elif len(args.ksizes) == 3:
          step = args.ksizes[2]
-       
+      
       # create calls, outpath, ksizes, format, readtypes, reads
       for k in range(int(args.ksizes[0]), int(args.ksizes[1]), int(step)):
-         arg = ' %s_%s %s ' % (args.outpath, k, k)
+         arg = ' %s_%s %s -create_binary ' % (args.outpath, k, k)
          if args.short: arg = arg + ' -short -%s %s' % (args.short[0], ' '.join(args.short[1:]))
          if args.short2: arg = arg + ' -short2 -%s %s' % (args.short2[0], ' '.join(args.short2[1:]))
-         if args.shortPaired: arg = arg + ' -shortPaired -%s %s' % (args.shortPaired[0], args.shortPaired[1])
-         if args.shortPaired2: arg = arg + ' -shortPaired2 -%s %s' % (args.shortPaired2[0], args.shortPaired2[1])
+         if args.shortPaired:
+            if len(args.shortPaired) == 2:
+               arg = arg + ' -shortPaired -%s %s' % (args.shortPaired[0], args.shortPaired[1])
+            elif len(args.shortPaired) == 3:
+               arg = arg + ' -shortPaired -separate -%s %s %s' % (args.shortPaired[0], args.shortPaired[1], args.shortPaired[2])
+         if args.shortPaired2:
+            if len(args.shortPaired2) == 2:
+               arg = arg + ' -shortPaired2 -%s %s' % (args.shortPaired2[0], args.shortPaired2[1])
+            elif len(args.shortPaired) == 3:
+               arg = arg + ' -shortPaired2 -separate -%s %s %s' % (args.shortPaired2[0], args.shortPaired2[1], args.shortPaired2[2])
          if args.long: arg = arg + ' -long -%s %s' % (args.long[0], ' '.join(args.long[1:]))
-         if args.longPaired: arg = arg + ' -longPaired -%s %s' % (args.longPaired[0], args.longPaired[1])
+         if args.longPaired:
+            if len(args.longPaired) == 2:
+               arg = arg + ' -longPaired -%s %s' % (args.longPaired[0], args.longPaired[1])
+            elif len(args.longPaired) == 3:
+               arg = arg + ' -longPaired -separate -%s %s %s' % (args.longPaired[0], args.longPaired[1], args.longPaired[2])
          if args.add_velveth: arg = arg + ' %s' % args.add_velveth
          call = cmd + arg
          velveth_calls.append(call)
@@ -425,10 +379,7 @@ def start_assembly(args, logger):
       cpuE = 'nodes=1:ppn=1,mem=5gb,walltime=172800'
       cpuF = 'nodes=1:ppn=2,mem=%s,walltime=172800' % args.m
       cpuB = 'nodes=1:ppn=16,mem=10gb,walltime=172800'
-   
-   # set filetypes
-   set_filetypes(args)
-   
+      
    # set kmersizes (if auto)
    if args.ksizes == ['auto']:
       args.ksizes = set_kmersizes(args)
@@ -438,19 +389,7 @@ def start_assembly(args, logger):
       illuminatrim_calls = illumina_trim(args, int(args.ksizes[0]), 15, 20, 15, False)
       if not os.path.exists('trimmed'):
          os.makedirs('trimmed')
-   
-   # checking if files needs to be interleaved
-   interleave_dict = {}    
-   interleave_dict['shortPaired'] = interleave(args.shortPaired, args.sample)[0] ; args.shortPaired = interleave(args.shortPaired, args.sample)[1]
-   interleave_dict['shortPaired2'] = interleave(args.shortPaired2, args.sample)[0] ; args.shortPaired2 = interleave(args.shortPaired2, args.sample)[1]
-   interleave_dict['longPaired'] = interleave(args.longPaired, args.sample)[0] ; args.longPaired = interleave(args.longPaired, args.sample)[1]
-   
-   # interleave calls
-   interleave_calls = []
-   for key,value in interleave_dict.items():
-      if value:
-         interleave_calls.append(value)
-   
+      
    # velvet calls
    velvet_calls = create_velvet_calls(args)
       
@@ -467,22 +406,10 @@ def start_assembly(args, logger):
    # if trimming is needed
    if args.trim:
       illuminatrim_moab = Moab(illuminatrim_calls, logfile=logger, runname='run_mlst_trim', queue=args.q, cpu=cpuF, partition=args.partition, host='cge-s2.cbs.dtu.dk')
-      # if no interleaving is needed
-      if len(interleave_calls) == 0:
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
-      # if interleaving is needed
-      else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, partition=args.partition, host='cge-s2.cbs.dtu.dk')
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
+      velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=illuminatrim_moab.ids, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
    # if no trimming
    else:
-      # if no interleaving is needed
-      if len(interleave_calls) == 0:
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
-      # if interleaving is needed
-      else:
-         interleave_moab = Moab(interleave_calls, logfile=logger, runname='run_mlst_interleave', queue=args.q, cpu=cpuF, partition=args.partition, host='cge-s2.cbs.dtu.dk')
-         velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, depend=True, depend_type='all', depend_val=[1], depend_ids=interleave_moab.ids, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
+      velvet_moab = Moab(velvet_calls, logfile=logger, runname='run_mlst_velvet', queue=args.q, cpu=cpuV, env=env_var, partition=args.partition, host='cge-s2.cbs.dtu.dk')
    
    # submit job for postprocessing
    postprocess_moab = Moab(postprocess_calls, logfile=logger, runname='run_mlst_postprocess', queue=args.q, cpu=cpuA, depend=True, depend_type='conc', depend_val=[len(velvet_calls)], depend_ids=velvet_moab.ids, partition=args.partition, host='cge-s2.cbs.dtu.dk')
@@ -490,7 +417,6 @@ def start_assembly(args, logger):
    # release jobs
    print "Releasing jobs"
    if args.trim and len(illuminatrim_calls) > 0: illuminatrim_moab.release(host='cge-s2.cbs.dtu.dk')
-   if len(interleave_calls) > 0: interleave_moab.release('cge-s2.cbs.dtu.dk')
    velvet_moab.release('cge-s2.cbs.dtu.dk')
    postprocess_moab.release(host='cge-s2.cbs.dtu.dk')
    
@@ -538,6 +464,7 @@ if __name__ == '__main__':
    #args = parser.parse_args('--shortPaired Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --ksizes 33 75 4 --sample kleb_wtrim --trim'.split())
    #args = parser.parse_args('--short /panvol1/simon/projects/cge/EHEC/illumina/bgi/110601_I238_FCB067HABXX_L3_ESCqslRAADIAAPEI-2_1.fq --outpath assembly'.split())
    #args = parser.parse_args('--sample None --outpath assembly --min_contig_lgth 100 --exp_cov auto --log info --sfile None --short /net/cxfs1-10g/home/projects3/squid/rapsearch/reads/DFPA.reads.fq --ksizes auto --partition cge-cluster --m 1gb --n 1 --q cge'.split())
+   #args = parser.parse_args('--shortPaired fastq.gz test_1.fastq.gz test_2.fastq.gz --sample testgz'.split())
    
    
    # add_velveth and add_velvetg works from commandline, eg:

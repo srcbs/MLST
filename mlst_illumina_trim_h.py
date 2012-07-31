@@ -14,7 +14,7 @@ import random
 import string
 import cdb
 import multiprocessing
-
+import gzip
 
 class FastqTrim:
    '''Trim/Filter paired end fastq:
@@ -60,7 +60,11 @@ class FastqTrim:
       def check_interleaved(self):
          '''Check if a file is interleaved paired or single'''
          
-         fh = open(self.f[0], 'r')
+         if self.f[0].endswith('.gz'):
+            fh = gzip.open(self.f[0], 'rb')
+         else:
+            fh = open(self.f[0], 'r')
+         
          count = 0
          ends = []
          if self.fqtype[0] == 'Illumina1.4' or self.fqtype[0] == 'nd':
@@ -240,7 +244,11 @@ class FastqTrim:
       def write_out(db_common, f, o):
          '''Write out reads'''
          
-         fh = open(f, 'r')
+         if f.endswith('.gz'):
+            fh = gzip.open(f, 'rb')
+         else:
+            fh = open(f, 'r')
+         
          out = open(o, 'w')
          written_count = 0
          total_count = 0
@@ -256,6 +264,13 @@ class FastqTrim:
                if db_common.has_key(title.split(' ')[0]):
                   out.write('@%s\n%s\n+\n%s\n' % (title, sequence, quality))
                   written_count += 1
+         elif self.fqtype[0] == 'IlluminaSRA':
+             for (title, sequence, quality) in FastqGeneralIterator(fh):
+               total_count += 1
+               if db_common.has_key(title.split(' ')[1][:-2]):
+                  out.write('@%s\n%s\n+\n%s\n' % (title, sequence, quality))
+                  written_count += 1
+            
          
          sys.stderr.write('%s: Total %i, Written %i (%.1f%%)\n' % (f, total_count, written_count, written_count/total_count*100))
          fh.close()
@@ -264,11 +279,17 @@ class FastqTrim:
       def create_db(f, db_fname):
          '''Write out db of headers'''
          
-         fh = open(f, 'r')
+         if f.endswith('.gz'):
+            fh = gzip.open(f, 'rb')
+         else:
+            fh = open(f, 'r')
+         
          if self.fqtype[0] == 'Illumina1.4':
             fh_headers = (x.strip()[1:-2] for i, x in enumerate(fh) if not (i % 4))
          elif self.fqtype[0] == 'Illumina1.8':
             fh_headers = (x.split(' ')[0][1:] for i, x in enumerate(fh) if not (i % 4))
+         elif self.fqtype[0] == 'IlluminaSRA':
+            fh_headers = (x.split(' ')[1][:-3] for i, x in enumerate(fh) if not (i % 4))
          else:
             sys.stderr.write('Header encoding not determined: %s\n' % self.fqtype[0])
          
@@ -334,8 +355,11 @@ class FastqTrim:
       
       def trim_file(self, f, f_out):
          written = 0
-         total = 0      
-         fh_in = open(f, 'r')
+         total = 0
+         if f.endswith('.gz'):
+            fh_in = gzip.open(f, 'rb')
+         else:
+            fh_in = open(f, 'r')
          fh_out = open(f_out, 'w')
          for (title, sequence, quality) in FastqGeneralIterator(fh_in):
             total += 1
@@ -353,7 +377,10 @@ class FastqTrim:
       def trim_interleaved_file(self, f, f_out):
          written = 0
          total = 0      
-         fh_in = open(f, 'r')
+         if f.endswith('.gz'):
+            fh_in = gzip.open(f, 'rb')
+         else:
+            fh_in = open(f, 'r')
          fh_out = [open(f_out[0], 'w'), open(f_out[1], 'w')]
          for (title, sequence, quality) in FastqGeneralIterator(fh_in):
             (title, sequence, quality) = self.filter_adaptor(title, sequence, quality)
@@ -421,6 +448,7 @@ if __name__ == '__main__':
    #args = parser.parse_args('--i kleb_test_2.fq --l 25 --q 20 --o kleb_test_2.trim.fq'.split())
    #args = parser.parse_args('--i Kleb-10-213361_2_1_sequence.txt Kleb-10-213361_2_2_sequence.txt --M 15 --o Kleb-10-213361_2_1_sequence.trim.fq Kleb-10-213361_2_2_sequence.trim.fq '.split())
    #args = parser.parse_args('--i /home/panfs/cbs/projects/cge/data/cge_private/unsorted_data_hhas/BGI2012/Lane1/split/ec_PE3.clipped.fq --o trimmed/ec_PE3.clipped.fq.trim'.split())
+   #args = parser.parse_args('--i test_1.fastq test_2.fastq --o test_1.trim.fastq test_2.trim.fastq'.split())
    
    # create instance
    fqtrim = FastqTrim(args.i, args.o, args.min_length, args.min_baseq, args.min_avgq, args.keep_n, args.min_adaptor_match, args.adaptors)

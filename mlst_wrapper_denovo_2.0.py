@@ -60,6 +60,24 @@ def set_abspath():
             setattr(args, self.dest, filenames)
    return SetAbspath
 
+def set_abspath_velvet():
+   '''Returns absolute path of file to argparse'''
+   class SetAbspath(argparse.Action):
+      def __call__(self, parser, args, filenames, option_string=None):
+         import os
+         if type(filenames) == str:
+            f_abs = os.path.abspath(filenames)
+            setattr(args, self.dest, f_abs)
+         elif type(filenames) == list:
+            new_list = [filenames[0]]
+            for f in filenames[1:]:
+               new_list.append(os.path.abspath(f))
+            setattr(args, self.dest, new_list)
+         else:
+            setattr(args, self.dest, filenames)
+   return SetAbspath
+
+
 def create_jobs(prog, args, sfile, logger):
    '''Create an msub command from prog and args'''
    
@@ -138,12 +156,12 @@ subparsers = parser.add_subparsers(dest='assembler')
 # velvet
 parser_velvet = subparsers.add_parser('velvet', help='Run velvet denovo assembly', parents=[parent_parser], formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=50, width=110), usage='mlst_wrapper_denovo_2.0.py velvet [options]', description=
    '''Run Velvet denovo assembly, add_velvetg/add_velveth has to be added with quotes, eg: add_velvetg "-very_clean yes". NB: Trimming does not work on already interleaved files, This version of the wrapper only takes fasta and fastq as input\nDefault ksizes (auto) will run a range awer45 (read_length/3..read_length/3*2) with step 4 between \n''')
-parser_velvet.add_argument('--short', help='short reads', nargs='+', action=set_abspath())
-parser_velvet.add_argument('--shortPaired', help='short paired reads', nargs='+', action=set_abspath())
-parser_velvet.add_argument('--short2', help='short2 reads', nargs='+', action=set_abspath())
-parser_velvet.add_argument('--shortPaired2', help='short paired2 reads', nargs='+', action=set_abspath())
-parser_velvet.add_argument('--long', help='long reads', nargs='+', action=set_abspath())
-parser_velvet.add_argument('--longPaired', help='long paired reads', nargs='+', action=set_abspath())
+parser_velvet.add_argument('--short', help='short reads', nargs='+', action=set_abspath_velvet())
+parser_velvet.add_argument('--shortPaired', help='short paired reads', nargs='+', action=set_abspath_velvet())
+parser_velvet.add_argument('--short2', help='short2 reads', nargs='+', action=set_abspath_velvet())
+parser_velvet.add_argument('--shortPaired2', help='short paired2 reads', nargs='+', action=set_abspath_velvet())
+parser_velvet.add_argument('--long', help='long reads', nargs='+', action=set_abspath_velvet())
+parser_velvet.add_argument('--longPaired', help='long paired reads', nargs='+', action=set_abspath_velvet())
 parser_velvet.add_argument('--ksizes', help='kmers to run assemblies for (single (m) or m M s (min, max, step)) [auto]', nargs='+', default=['auto'])
 parser_velvet.add_argument('--outpath', help='name of run, also output dir [assembly]', default='assembly')
 parser_velvet.add_argument('--trim', help='should input files be trimmed (illumina only) [False]', default=False, action='store_true')

@@ -24,7 +24,7 @@ def setSystem():
       sys['samtools_home'] = '/panvol1/simon/bin/samtools-0.1.16/'
       sys['picard_home'] = '/panvol1/simon/bin/picard-tools-1.26/'
       sys['bedtools_home'] = '/panvol1/simon/bin/BEDTools-2.8.3/'
-      sys['velvet_home'] = '/panvol1/simon/bin/velvet_1.1.04/'
+      sys['velvet_home'] = '/panvol1/simon/bin/velvet_1.2.07/'
       sys['newbler'] = '/panvol1/simon/bin/454/bin/'
       sys['R_home'] = '/panvol1/simon/bin/mlst/'
       sys['mlst_home'] = '/panvol1/simon/bin/mlst/'
@@ -50,7 +50,13 @@ def rm_files(patterns):
 def set_filetype(f):
    '''Detects filetype from fa, fq and sff input file'''
    
-   inhandle = open(f, "r")
+   import gzip
+   
+   if f.endswith('.gz'):
+      inhandle = gzip.open(f, 'rb')
+   else:
+      inhandle = open(f, "r")
+   
    line = inhandle.readline()
    if line.startswith(">"):
       out = 'fasta'
@@ -73,14 +79,20 @@ def set_fqtype(f):
    
    from Bio.SeqIO.QualityIO import FastqGeneralIterator
    import re
+   import gzip
    
    # type is (header encoding, quality encoding)
    type = ['nd', 'nd']
-   inhandle = open(f, 'r')
+   
+   if f.endswith('.gz'):
+      inhandle = gzip.open(f, 'rb')
+   else:
+      inhandle = open(f, 'r')
    
    re_illumina = re.compile('^\w+-?\w+:\w+:\w+:\w+:\w+#.+\/\d')
    re_illumina_v18 = re.compile('^\w+-\w+:\w+:\w+:\d+:\d+:\d+:\d+\s\d:\w:\d+:\w+')
-      
+   re_illumina_sra = re.compile('^\w+\.\d+\s.+\/\d$')
+   
    for (title, sequence, quality) in FastqGeneralIterator(inhandle):
       # detect header encoding
       hd = re_illumina.match(title)
@@ -90,6 +102,9 @@ def set_fqtype(f):
          hd = re_illumina_v18.match(title)
          if hd:
             type[0] = 'Illumina1.8'
+         else:
+            hd = re_illumina_sra.match(title)
+            if hd: type[0] = 'IlluminaSRA'
       
       # detect quality encoding
       qs = map(ord, quality)
