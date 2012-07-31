@@ -29,6 +29,7 @@ def setSystem():
       sys['R_home'] = '/panvol1/simon/bin/mlst/'
       sys['mlst_home'] = '/panvol1/simon/bin/mlst/'
       sys['solid_home'] = '/panvol1/simon/bin/solid/'
+      sys['pigz_home'] = '/tools/bin/'
    else:
       raise ValueError('Platform not identified')
    

@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.7
 
 import argparse
+import os
 
 def set_abspath():
    '''Returns absolute path of file to argparse'''
@@ -34,8 +35,21 @@ def newbler(args):
          se_ftypes = map(mlst_modules.set_filetype, args.se)
          for i,f in enumerate(args.se):
             if se_ftypes[i] == 'fastq':
-               cmds.append('%sconvertFastq2FastaQual.py --i %s --o %s' % (paths['mlst_home'], f, os.path.split(f)[1]))
+               cmds.append('%smlst_fastq2fastaqual.py --i %s --p %s' % (paths['mlst_home'], f, os.path.split(f)[1]))
                se.append(os.path.split(f)[1]+'.fasta')
+            elif se_ftypes[i] == 'fasta':
+               if f.endswith('.gz'):
+                  fnew = os.path.splitext(os.path.split(f)[1])[0]
+                  cmds.append('''%spigz -dc -p %s %s > %s''' % (paths['pigz_home'], args.n, f, fnew))
+                  se.append(fnew)
+                  
+                  # look for qual file (dont add to path because newbler will pick it up)
+                  possible_qual = os.path.splitext(os.path.splitext(f)[0])[0] + '.qual.gz'
+                  if os.path.exists(possible_qual):
+                     qnew = os.path.split(os.path.splitext(os.path.splitext(f)[0])[0] + '.qual')[1]
+                     cmds.append('''%spigz -dc -p %s %s > %s''' % (paths['pigz_home'], args.n, possible_qual, qnew))
+               else:
+                  se.append(f)
             else:
                se.append(f)
       
@@ -43,12 +57,28 @@ def newbler(args):
          pe_ftypes = map(mlst_modules.set_filetype, args.pe)
          for i,f in enumerate(args.pe):
             if pe_ftypes[i] == 'fastq':
-               cmds.append('%sconvertFastq2FastaQual.py --i %s --o %s' % (paths['mlst_home'], f, os.path.split(f)[1]))
+               cmds.append('%smlst_fastq2fastaqual.py --i %s --p %s' % (paths['mlst_home'], f, os.path.split(f)[1]))
                pe.append(os.path.split(f)[1]+'.fasta')
+            elif pe_ftypes[i] == 'fasta':
+               if f.endswith('.gz'):
+                  fnew = os.path.splitext(os.path.split(f)[1])[0]
+                  cmds.append('''%spigz -dc -p %s %s > %s''' % (paths['pigz_home'], args.n, f, fnew))
+                  fnew = os.path.splitext(f)[0]
+                  pe.append(fnew)
+                  
+                  # look for qual file (dont add to path because newbler will pick it up)
+                  possible_qual = os.path.splitext(os.path.splitext(f)[0])[0] + '.qual.gz'
+                  if os.path.exists(possible_qual):
+                     qnew = os.path.split(os.path.splitext(os.path.splitext(f)[0])[0] + '.qual')[1]
+                     cmds.append('''%spigz -dc -p %s %s > %s''' % (paths['pigz_home'], args.n, possible_qual, qnew))
+               else:
+                  se.append(f)
+
             else:
                pe.append(f)
       
       return cmds, se, pe
+   
    
    import mlst_modules
    paths = mlst_modules.setSystem()
