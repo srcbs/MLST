@@ -186,8 +186,8 @@ parser_solid.add_argument('--se', help='input single end csfasta file (F3, F3q)'
 parser_solid.add_argument('--pe', help='input paired end csfasta files (F3, F3q, F5, F5q) ', nargs='+', default=None, action=set_abspath())
 parser_solid.add_argument('--mp', help='input mate pair csfasta files (F3, F3q, R3, R3q)', nargs='+', default=None, action=set_abspath())
 parser_solid.add_argument('--rf', help='input expected length of genome in bp', type=int, required=True)
-parser_solid.add_argument('--ins_length', help='estimate of mate/paired end insert length eg. (1200/170)', type=int)
-parser_solid.add_argument('--ins_length_sd', help='estimate of mate/paired end insert length eg. (300/30)', type=int)
+parser_solid.add_argument('--ins_length', help='estimate of mate/paired end insert length eg. (1200/170)', type=int, required=True)
+parser_solid.add_argument('--ins_length_sd', help='estimate of mate/paired end insert length eg. (300/30)', type=int, required=True)
 parser_solid.add_argument('--add_solid', help='additional parameters to solid assembler', default=None)
 
 args = parser.parse_args()
